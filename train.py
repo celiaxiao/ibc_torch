@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 
 from ibc import dataset, models, optimizers, trainer, utils
 from ibc.experiment import Experiment
-
+from agents import mcmc
 
 @dataclasses.dataclass
 class TrainConfig:
