@@ -129,6 +129,8 @@ def plot(
     plt.ylim(0 - 2, resolution[0] + 2)
 
     plt.savefig(plot_path, format="png", dpi=dpi)
+    print(plot_path)
+    # plt.savefig('./10.png', format="png", dpi=dpi)
     plt.close()
 
 
