@@ -16,6 +16,7 @@
 """MCMC algorithms to optimize samples from EBMs."""
 
 import collections
+from email import policy
 import agents.utils as utils
 import torch
 import torch.nn as nn
@@ -26,7 +27,7 @@ import numpy as np
 # This global makes it easier to switch on/off tf.range in this file.
 # Which I am often doing in order to debug anything in the binaries
 # that use this.
-my_range = torch.range
+my_range = torch.arange
 import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def categorical_bincount(count, log_ps, n):
@@ -49,9 +50,9 @@ def categorical_bincount(count, log_ps, n):
     #     samples, minlength=n, maxlength=n, axis=-1)
     batch_size, count = samples.shape
     # intervals is used to separate tensor within each batch
-    intervals = torch.arange(batch_size) * count # [batch_size,]
+    intervals = torch.arange(batch_size) * n # [batch_size,]
     intervals = intervals[:,None].expand(samples.shape) # [B,n]
-    bincounts = torch.bincount((samples+intervals).reshape(-1), minlength=count*batch_size).reshape([batch_size, count]) # [B, n]
+    bincounts = torch.bincount((samples+intervals).reshape(-1), minlength=n*batch_size).reshape([batch_size, n]) # [B, n]
     return bincounts
 
 
@@ -103,18 +104,13 @@ def iterative_dfo(network,
   def update_selected_actions(samples, policy_state):
     if late_fusion:
       # Repeatedly hand in the precomputed obs encodings.
-      net_logits, new_policy_state = network(
+      # TODO: what is obs_encoding?
+      net_logits = network(
           (observations, samples),
-          step_type=tfa_step_type,
-          training=training,
-          network_state=policy_state,
           observation_encoding=obs_encodings)
     else:
-      net_logits, new_policy_state = network(
-          (observations, samples),
-          step_type=tfa_step_type,
-          network_state=policy_state,
-          training=training)
+      net_logits = network(
+          (observations, samples))
 
     # Shape is just (B * n), for example (4096,) for B=2, n=2048
     net_logits = torch.reshape(net_logits, (batch_size, num_action_samples))
@@ -138,15 +134,16 @@ def iterative_dfo(network,
         my_range(batch_size * num_action_samples), actions_selected)
     # repeat_indices = tf.ensure_shape(repeat_indices, actions_selected.shape)
     assert repeat_indices.shape == actions_selected.shape
-    return log_probs, torch.gather(
-        samples, dim =0, index=repeat_indices), new_policy_state
+    # print("samples", samples.shape, "index", repeat_indices.shape)
+    return log_probs, samples[repeat_indices], policy_state
 
   log_probs, action_samples, new_policy_state = update_selected_actions(
       action_samples, policy_state)
-
+  min_actions = torch.tensor(min_actions)
+  max_actions = torch.tensor(max_actions)
   for _ in my_range(num_iterations - 1):
     # tf normal distribution default with mean=0.0, stddev=1.0,
-    action_samples += torch.normal(mean=0,std=1,size=torch.shape(action_samples)) * iteration_std
+    action_samples += torch.normal(mean=0,std=1,size=action_samples.shape) * iteration_std
     action_samples = torch.clamp(action_samples,
                                       min_actions,
                                       max_actions)
@@ -154,7 +151,7 @@ def iterative_dfo(network,
         action_samples, new_policy_state)
     iteration_std *= 0.5  # Shrink sampling by half each iter.
 
-  probs = nn.Softmax(log_probs, axis=1)
+  probs = F.softmax(log_probs, dim=1)
   probs = torch.reshape(probs, (-1,))
   # Shapes are: (B*n), (B*n x act_spec), and whatever for new_policy_state.
   return probs, action_samples, new_policy_state
@@ -171,26 +168,22 @@ def gradient_wrt_act(energy_network,
   """Compute dE(obs,act)/dact, also return energy."""
   # with tf.GradientTape() as g:
     # g.watch(actions)
-  action_grad = actions.clone().detach().requires_grad_(True)
+  # action_grad = actions.clone().detach().requires_grad_(True)
+  actions.requires_grad_(True)
   if obs_encoding is not None:
-    energies, _ = energy_network((observations, action_grad),
-                                  training=training,
-                                  network_state=network_state,
-                                  step_type=tfa_step_type,
+    energies = energy_network((observations, actions),
                                   observation_encoding=obs_encoding)
   else:
-    energies, _ = energy_network((observations, action_grad),
-                                  training=training,
-                                  network_state=network_state,
-                                  step_type=tfa_step_type)
+    energies = energy_network((observations, actions))
   # If using a loss function that involves the exp(energies),
   # should we apply exp() to the energy when taking the gradient?
   if apply_exp:
     energies = torch.exp(energies)
   # My energy sign is flipped relative to Igor's code,
   # so -1.0 here.
-  energies.backward()
-  denergies_dactions = action_grad.grad.data * -1.0
+  # print("gradient wrt action", energies.shape, actions.shape)
+  energies.sum().backward()
+  denergies_dactions = actions.grad.data * -1.0
   return denergies_dactions, energies
 
 
@@ -235,7 +228,8 @@ def langevin_step(energy_network,
                                        tfa_step_type,
                                        apply_exp,
                                        obs_encoding)
-
+  # min_actions = torch.tensor(min_actions)
+  # max_actions = torch.tensor(max_actions)
   # This effectively scales the gradient as if the actions were
   # in a min-max range of -1 to 1.
   delta_action_clip = delta_action_clip * 0.5*(max_actions - min_actions)
@@ -249,7 +243,7 @@ def langevin_step(energy_network,
     de_dact = torch.clamp(de_dact, -grad_clip, grad_clip)
   gradient_scale = 0.5  # this is in the Langevin dynamics equation.
   de_dact = (gradient_scale * l_lambda * de_dact +
-             torch.normal(mean=0, std=1, size=torch.shape(actions)) * l_lambda * noise_scale)
+             torch.normal(mean=0, std=1, size=actions.shape) * l_lambda * noise_scale)
   delta_actions = stepsize * de_dact
 
   # Clip to box.
@@ -313,7 +307,7 @@ def update_chain_data(num_iterations,
   # full_chain_grad_norms[step_index] = grad_norms
 
   iter_onehot = F.one_hot(step_index, num_iterations)[Ellipsis, None]
-  iter_onehot = torch.broadcast_to(iter_onehot, torch.shape(full_chain_energies))
+  iter_onehot = torch.broadcast_to(iter_onehot, full_chain_energies.shape)
 
   new_energies = energies * iter_onehot
   full_chain_energies += new_energies
@@ -322,9 +316,9 @@ def update_chain_data(num_iterations,
   full_chain_grad_norms += new_grad_norms
 
   iter_onehot = iter_onehot[Ellipsis, None]
-  iter_onehot = torch.broadcast_to(iter_onehot, torch.shape(full_chain_actions))
+  iter_onehot = torch.broadcast_to(iter_onehot, full_chain_actions.shape)
   actions_expanded = actions[None, Ellipsis]
-  actions_expanded = torch.broadcast_to(actions_expanded, torch.shape(iter_onehot))
+  actions_expanded = torch.broadcast_to(actions_expanded, iter_onehot.shape)
   new_actions_expanded = actions_expanded * iter_onehot
   full_chain_actions += new_actions_expanded
   return full_chain_actions, full_chain_energies, full_chain_grad_norms
@@ -360,7 +354,8 @@ def langevin_actions_given_obs(
   # actions = tf.identity(action_samples)
   identity =  nn.Identity()
   actions = identity(action_samples)
-
+  min_actions = torch.tensor(min_actions)
+  max_actions = torch.tensor(max_actions)
   if use_polynomial_rate:
     schedule = PolynomialSchedule(sampler_stepsize_init, sampler_stepsize_final,
                                   sampler_stepsize_power, num_iterations)
@@ -368,8 +363,8 @@ def langevin_actions_given_obs(
     schedule = ExponentialSchedule(sampler_stepsize_init,
                                    sampler_stepsize_decay)
 
-  b_times_n = torch.shape(action_samples)[0]
-  act_dim = torch.shape(action_samples)[-1]
+  b_times_n = action_samples.shape[0]
+  act_dim = action_samples.shape[-1]
 
   # Note 2: to work inside the tf.range, we have to initialize all these
   # outside the loop.
@@ -442,6 +437,6 @@ def get_probabilities(energy_network,
   net_logits, _ = energy_network(
       (observations, actions), training=training)
   net_logits = torch.reshape(net_logits, (batch_size, num_action_samples))
-  probs = nn.Softmax(net_logits / temperature, axis=1)
+  probs = F.softmax(net_logits / temperature, dim=1)
   probs = torch.reshape(probs, (-1,))
   return probs
