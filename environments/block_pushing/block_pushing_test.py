@@ -16,7 +16,7 @@
 """Tests for ibc.environments.block_pushing."""
 
 import collections
-from ibc.environments.block_pushing import block_pushing
+from environments.block_pushing import block_pushing
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_agents.environments import suite_gym

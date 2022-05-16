@@ -14,8 +14,8 @@
 # limitations under the License.
 
 """XArm Robot Kinematics."""
-from ibc.environments.utils import utils_pybullet
-from ibc.environments.utils.pose3d import Pose3d
+from environments.utils import utils_pybullet
+from environments.utils.pose3d import Pose3d
 import numpy as np
 from scipy.spatial import transform
 import pybullet
@@ -24,11 +24,11 @@ XARM_URDF_PATH = ('third_party/bullet/examples/pybullet/gym/pybullet_data/'
                   'xarm/xarm6_robot.urdf')
 XARM_WHITE_URDF_PATH = ('third_party/robotics/models/xarm/'
                         'xarm6_robot_white.urdf')
-SUCTION_URDF_PATH = ('third_party/py/ibc/environments/assets/suction/'
+SUCTION_URDF_PATH = ('third_party/py/ibc_torch/environments/assets/suction/'
                      'suction-head-long.urdf')
-CYLINDER_URDF_PATH = ('third_party/py/ibc/environments/assets/suction/'
+CYLINDER_URDF_PATH = ('third_party/py/ibc_torch/environments/assets/suction/'
                       'cylinder.urdf')
-CYLINDER_REAL_URDF_PATH = ('third_party/py/ibc/environments/assets/suction/'
+CYLINDER_REAL_URDF_PATH = ('third_party/py/ibc_torch/environments/assets/suction/'
                            'cylinder_real.urdf')
 HOME_JOINT_POSITIONS = np.deg2rad([0, -20, -80, 0, 100, -30])
 

@@ -25,23 +25,23 @@ import gin
 import gym
 from gym import spaces
 from gym.envs import registration
-from ibc.environments.block_pushing import metrics as block_pushing_metrics
-from ibc.environments.utils import utils_pybullet
-from ibc.environments.utils import xarm_sim_robot
-from ibc.environments.utils.pose3d import Pose3d
-from ibc.environments.utils.utils_pybullet import ObjState
-from ibc.environments.utils.utils_pybullet import XarmState
+from environments.block_pushing import metrics as block_pushing_metrics
+from environments.utils import utils_pybullet
+from environments.utils import xarm_sim_robot
+from environments.utils.pose3d import Pose3d
+from environments.utils.utils_pybullet import ObjState
+from environments.utils.utils_pybullet import XarmState
 import numpy as np
 from scipy.spatial import transform
 import pybullet
 import pybullet_utils.bullet_client as bullet_client
 
-BLOCK_URDF_PATH = 'third_party/py/ibc/environments/assets/block.urdf'
+BLOCK_URDF_PATH = 'third_party/py/ibc_torch/environments/assets/block.urdf'
 PLANE_URDF_PATH = ('third_party/bullet/examples/pybullet/gym/pybullet_data/'
                    'plane.urdf')
-WORKSPACE_URDF_PATH = 'third_party/py/ibc/environments/assets/workspace.urdf'
-ZONE_URDF_PATH = 'third_party/py/ibc/environments/assets/zone.urdf'
-INSERT_URDF_PATH = 'third_party/py/ibc/environments/assets/insert.urdf'
+WORKSPACE_URDF_PATH = 'third_party/py/ibc_torch/environments/assets/workspace.urdf'
+ZONE_URDF_PATH = 'third_party/py/ibc_torch/environments/assets/zone.urdf'
+INSERT_URDF_PATH = 'third_party/py/ibc_torch/environments/assets/insert.urdf'
 
 EFFECTOR_HEIGHT = 0.06
 EFFECTOR_DOWN_ROTATION = transform.Rotation.from_rotvec([0, math.pi, 0])
@@ -98,7 +98,7 @@ X_MAX_REAL = 0.6
 Y_MIN_REAL = -0.3048
 Y_MAX_REAL = 0.3048
 WORKSPACE_BOUNDS_REAL = np.array(((X_MIN_REAL, Y_MIN_REAL), (X_MAX_REAL, Y_MAX_REAL)))
-WORKSPACE_URDF_PATH_REAL = 'third_party/py/ibc/environments/assets/workspace_real.urdf'
+WORKSPACE_URDF_PATH_REAL = 'third_party/py/ibc_torch/environments/assets/workspace_real.urdf'
 CAMERA_POSE_REAL = (0.75, 0, 0.5)
 CAMERA_ORIENTATION_REAL = (np.pi / 5, np.pi, -np.pi / 2)
 

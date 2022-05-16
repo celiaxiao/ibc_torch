@@ -101,7 +101,7 @@ def iterative_dfo(network,
     # Tile embeddings to match actions.
     obs_encodings = nest_utils.tile_batch(obs_encodings, num_action_samples)
 
-  def update_selected_actions(samples, policy_state):
+  def update_selected_actions_tf(samples, policy_state):
     if late_fusion:
       # Repeatedly hand in the precomputed obs encodings.
       net_logits, new_policy_state = network(
@@ -139,7 +139,7 @@ def iterative_dfo(network,
     return log_probs, tf.gather(
         samples, repeat_indices, axis=0), new_policy_state
 
-  log_probs, action_samples, new_policy_state = update_selected_actions(
+  log_probs, action_samples, new_policy_state = update_selected_actions_tf(
       action_samples, policy_state)
 
   for _ in my_range(num_iterations - 1):
@@ -148,7 +148,7 @@ def iterative_dfo(network,
     action_samples = tf.clip_by_value(action_samples,
                                       min_actions,
                                       max_actions)
-    log_probs, action_samples, new_policy_state = update_selected_actions(
+    log_probs, action_samples, new_policy_state = update_selected_actions_tf(
         action_samples, new_policy_state)
     iteration_std *= 0.5  # Shrink sampling by half each iter.
 
@@ -206,7 +206,7 @@ def compute_grad_norm_tf(grad_norm_type, de_dact):
   return grad_norms
 
 
-def langevin_step(energy_network,
+def langevin_step_tf(energy_network,
                   observations,
                   actions,
                   training,
@@ -224,7 +224,7 @@ def langevin_step(energy_network,
   """Single step of Langevin update."""
   l_lambda = 1.0
   # Langevin dynamics step
-  de_dact, energies = gradient_wrt_act(energy_network,
+  de_dact, energies = gradient_wrt_act_tf(energy_network,
                                        observations,
                                        actions,
                                        training,
@@ -240,13 +240,16 @@ def langevin_step(energy_network,
   # TODO(peteflorence): can I get rid of this copy, for performance?
   # Times 1.0 since I don't trust tf.identity to make a deep copy.
   unclipped_de_dact = de_dact * 1.0
-  grad_norms = compute_grad_norm(grad_norm_type, unclipped_de_dact)
+  grad_norms = compute_grad_norm_tf(grad_norm_type, unclipped_de_dact)
 
   if grad_clip is not None:
     de_dact = tf.clip_by_value(de_dact, -grad_clip, grad_clip)
   gradient_scale = 0.5  # this is in the Langevin dynamics equation.
+  # print((gradient_scale * l_lambda * de_dact).shape, (tf.random.normal(tf.shape(actions)) * l_lambda * noise_scale).shape)
+  # de_dact= tf.cast(de_dact, tf.float64)
   de_dact = (gradient_scale * l_lambda * de_dact +
-             tf.random.normal(tf.shape(actions)) * l_lambda * noise_scale)
+             tf.random.normal(tf.shape(actions), dtype=de_dact.dtype) * l_lambda * noise_scale)
+  # print(stepsize, de_dact.dtype)
   delta_actions = stepsize * de_dact
 
   # Clip to box.
@@ -255,7 +258,7 @@ def langevin_step(energy_network,
   # TODO(peteflorence): investigate more clipping to sphere:
   # delta_actions = tf.clip_by_norm(
   #  delta_actions, delta_action_clip, axes=[1])
-
+  # actions = tf.cast(actions, tf.float32)
   actions = actions - delta_actions
   actions = tf.clip_by_value(actions,
                              min_actions,
@@ -294,7 +297,7 @@ class PolynomialSchedule:
             ) + self._final
 
 
-def update_chain_data(num_iterations,
+def update_chain_data_tf(num_iterations,
                       step_index,
                       actions,
                       energies,
@@ -308,7 +311,7 @@ def update_chain_data(num_iterations,
   # full_chain_actions[step_index] = actions
   # full_chain_energies[step_index] = energies
   # full_chain_grad_norms[step_index] = grad_norms
-
+  # grad_norms = tf.cast(grad_norms, tf.float32)
   iter_onehot = tf.one_hot(step_index, num_iterations)[Ellipsis, None]
   iter_onehot = tf.broadcast_to(iter_onehot, tf.shape(full_chain_energies))
 
@@ -329,7 +332,7 @@ def update_chain_data(num_iterations,
 
 @tf.function
 @gin.configurable
-def langevin_actions_given_obs(
+def langevin_actions_given_obs_tf(
     energy_network,
     observations,  # B*n x obs_spec or B x obs_spec if late_fusion
     action_samples,  # B*n x act_spec
@@ -388,7 +391,7 @@ def langevin_actions_given_obs(
     obs_encoding = None
 
   for step_index in my_range(num_iterations):
-    actions, energies, grad_norms = langevin_step(energy_network,
+    actions, energies, grad_norms = langevin_step_tf(energy_network,
                                                   observations,
                                                   actions,
                                                   training,
@@ -409,7 +412,7 @@ def langevin_actions_given_obs(
 
     if return_chain:
       (full_chain_actions, full_chain_energies,
-       full_chain_grad_norms) = update_chain_data(num_iterations, step_index,
+       full_chain_grad_norms) = update_chain_data_tf(num_iterations, step_index,
                                                   actions, energies, grad_norms,
                                                   full_chain_actions,
                                                   full_chain_energies,
