@@ -22,12 +22,12 @@ from typing import Dict, List, Optional, Union
 import gin
 from gym import spaces
 from gym.envs import registration
-from ibc.environments.block_pushing import block_pushing
-from ibc.environments.block_pushing import metrics as block_pushing_metrics
-from ibc.environments.utils import utils_pybullet
-from ibc.environments.utils.pose3d import Pose3d
-from ibc.environments.utils.utils_pybullet import ObjState
-from ibc.environments.utils.utils_pybullet import XarmState
+from environments.block_pushing import block_pushing
+from environments.block_pushing import metrics as block_pushing_metrics
+from environments.utils import utils_pybullet
+from environments.utils.pose3d import Pose3d
+from environments.utils.utils_pybullet import ObjState
+from environments.utils.utils_pybullet import XarmState
 import numpy as np
 from scipy.spatial import transform
 import pybullet

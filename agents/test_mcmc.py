@@ -4,8 +4,8 @@ from network import mlp_ebm
 import numpy as np
 import torch
 import torch.nn as nn
-from mcmc import *
-from mcmc_tf import compute_grad_norm_tf
+from agents.mcmc import *
+from agents.mcmc_tf import compute_grad_norm_tf, gradient_wrt_act_tf
 import tensorflow as tf
 import os
 
@@ -35,9 +35,6 @@ def test_compute_grad_norm():
     # print(grad_norm_tf, grad_norm_torch)
     assert (np.round(grad_norm_tf.numpy(),4) == np.round(grad_norm_torch.numpy(),4)).all()
     
-def test_gradient_wrt_act():
-    
-    return
 
 def _test_batched_categorical_bincount_shapes( batch_size):
     num_samples = 256
@@ -109,6 +106,59 @@ def _get_mock_energy_network():
                     * self.energy_scale)**2
 
     return EnergyNet()
+
+def _get_mock_energy_network_tf():
+    class EnergyNet(tf.keras.Model):
+
+      def __init__(self, energy_scale=1e2):
+        super(EnergyNet, self).__init__()
+        self.mean = np.array([0.3, 0.4])
+        self.energy_scale = energy_scale
+
+      def call(self, x, step_type=(), network_state=(), training=()):
+        """Mock network."""
+        _, actions = x
+        return -(tf.linalg.norm(actions - self.mean, axis=1)
+                 * self.energy_scale)**2, ()
+
+    return EnergyNet()
+
+def test_gradient_wrt_act():
+    energy_network_torch = _get_mock_energy_network()
+    # Forces network to create variables.
+    energy_network_torch(((), torch.randn(1, 2)))
+
+    energy_network_tf = _get_mock_energy_network_tf()
+    energy_network_tf(((), np.random.randn(1, 2).astype(np.float32)))
+
+    batch_size = 2
+    num_action_samples = 128
+    obs = ()
+    init_action_samples = np.random.rand(batch_size * num_action_samples,
+                                         2).astype(np.float32)
+
+    deda_torch, energy_torch = gradient_wrt_act(
+        energy_network_torch,
+        obs,
+        torch.tensor(init_action_samples),
+        network_state=(),
+        training=False,
+        tfa_step_type=(),
+        apply_exp = False)
+    deda_tf, energy_tf = gradient_wrt_act_tf(
+        energy_network_tf,
+        obs,
+        init_action_samples,
+        network_state=(),
+        training=False,
+        tfa_step_type=(),
+        apply_exp = False)
+    assert deda_tf.shape == deda_torch.shape
+    assert energy_torch.shape == energy_tf.shape
+    # print("comparing deda", np.max(deda_tf.numpy() - deda_torch.numpy()))
+    # print("comparing output eneger", np.max(energy_tf.numpy() - energy_torch.detach().numpy()))
+    assert np.max(deda_tf.numpy() - deda_torch.numpy()) < 0.01
+    assert np.max(energy_tf.numpy() - energy_torch.detach().numpy()) < 0.01
 
 def test_shapes_iterative_dfo():
     batch_size = 2
@@ -197,6 +247,30 @@ def test_correct_langevin():
         tfa_step_type=())
     assert torch.linalg.norm(action_samples[0] - \
                             energy_network.mean) < 0.1
+# just check no runtime error
+def test_langevin_chain():
+    batch_size = 2
+    num_action_samples = 128
+    energy_network = _get_mock_energy_network()
+    # Forces network to create variables.
+    energy_network(((),torch.randn(1, 2)))
+    obs = ()
+    init_action_samples = torch.rand(batch_size * num_action_samples,
+                                            2)
+
+    action_samples,chain_data = langevin_actions_given_obs(
+        energy_network,
+        obs,
+        init_action_samples,
+        policy_state=(),
+        min_actions=np.array([0., 0.]).astype(np.float32),
+        max_actions=np.array([1., 1.]).astype(np.float32),
+        training=False,
+        num_iterations=25,
+        num_action_samples=num_action_samples,
+        return_chain=True,
+        tfa_step_type=())
+    # print("chain", chain_data.grad_norms.shape, chain_data.energies.shape,chain_data.actions.shape)
 
 def test_mlp():
     batch_size = 2
@@ -235,7 +309,9 @@ if __name__ == "__main__":
     # test_batched_categorical_bincount_shapes()
     # test_mlp()
     # test_mlp_with_dict_env()
-    test_shapes_iterative_dfo()
-    test_correct_iterative_dfo()
-    test_correct_langevin()
+    # test_shapes_iterative_dfo()
+    # test_correct_iterative_dfo()
+    # test_correct_langevin()
+    # test_gradient_wrt_act()
+    test_langevin_chain()
     

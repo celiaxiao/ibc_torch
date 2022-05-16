@@ -48,12 +48,12 @@ def info_nce_tf(predictions,
   return per_example_loss, dict()
 
 import gin
-from agents import mcmc_tf
+from agents import mcmc, mcmc_tf
 import tensorflow as tf
 
 
 @gin.configurable
-def grad_penalty(energy_network,
+def grad_penalty_tf(energy_network,
                  grad_norm_type,
                  batch_size,
                  chain_data,
@@ -67,7 +67,7 @@ def grad_penalty(energy_network,
   """Calculate losses based on some norm of dE/dactions from mcmc samples."""
   # Case 1: only add a gradient penalty on the final step.
   if only_apply_final_grad_penalty:
-    de_dact, _ = mcmc.gradient_wrt_act(
+    de_dact, _ = mcmc_tf.gradient_wrt_act_tf(
         energy_network,
         observations,
         tf.stop_gradient(combined_true_counter_actions),
@@ -77,7 +77,7 @@ def grad_penalty(energy_network,
         apply_exp=False)  # TODO(peteflorence): config this.
 
     # grad norms should now be shape (b*(n+1))
-    grad_norms = mcmc.compute_grad_norm(grad_norm_type, de_dact)
+    grad_norms = mcmc_tf.compute_grad_norm_tf(grad_norm_type, de_dact)
     grad_norms = tf.reshape(grad_norms, (batch_size, -1))
 
   else:
