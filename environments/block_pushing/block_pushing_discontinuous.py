@@ -22,9 +22,9 @@ from typing import List, Optional
 import gin
 from gym import spaces
 from gym.envs import registration
-from ibc.environments.block_pushing import block_pushing
-from ibc.environments.utils import utils_pybullet
-from ibc.environments.utils.pose3d import Pose3d
+from environments.block_pushing import block_pushing
+from environments.utils import utils_pybullet
+from environments.utils.pose3d import Pose3d
 import numpy as np
 from scipy.spatial import transform
 import pybullet

@@ -24,7 +24,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from absl import logging
-from ibc.environments.utils.pose3d import Pose3d
+from environments.utils.pose3d import Pose3d
 import numpy as np
 from scipy.spatial import transform
 import six
@@ -60,18 +60,19 @@ def matrix_to_rotation(matrix):
 
 def load_urdf(pybullet_client, file_path, *args, **kwargs):
   """Loads the given URDF filepath."""
-
+  # print("loading", file_path)
+  # print(os.listdir())
   # Handles most general file open case.
   try:
     if os.path.exists(file_path):
       return pybullet_client.loadURDF(file_path, *args, **kwargs)
   except pybullet_client.error:
     pass
-
+  
 
   try:
-    if file_path.startswith('third_party/py/ibc/'):
-      file_path = file_path[len('third_party/py/'):]
+    if file_path.startswith('third_party/py/ibc_torch/'):
+      file_path = file_path[len('third_party/py/ibc_torch/'):]
     if file_path.startswith(
         'third_party/bullet/examples/pybullet/gym/pybullet_data/'):
       pybullet_client.setAdditionalSearchPath(pybullet_data.getDataPath())

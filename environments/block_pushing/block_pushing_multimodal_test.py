@@ -16,8 +16,8 @@
 """Tests for ibc.environments.block_pushing_multimodal."""
 
 import collections
-from ibc.environments.block_pushing import block_pushing
-from ibc.environments.block_pushing import block_pushing_multimodal
+from environments.block_pushing import block_pushing
+from environments.block_pushing import block_pushing_multimodal
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_agents.environments import suite_gym

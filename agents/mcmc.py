@@ -97,7 +97,7 @@ def iterative_dfo(network,
   """
   if late_fusion:
     # Embed observations once.
-    obs_encodings = network.encode(observations, training=training)
+    obs_encodings = network.encode(observations)
     # Tile embeddings to match actions.
     obs_encodings = utils.tile_batch(obs_encodings, num_action_samples)
 
@@ -300,27 +300,25 @@ def update_chain_data(num_iterations,
                       full_chain_energies,
                       full_chain_grad_norms):
   """Helper function to keep track of data during the mcmc."""
-  # I really wish tensorflow made assignment-by-index easy.
-  # Then this function could just be:
-  # full_chain_actions[step_index] = actions
-  # full_chain_energies[step_index] = energies
-  # full_chain_grad_norms[step_index] = grad_norms
+  full_chain_actions[step_index] = actions
+  full_chain_energies[step_index] = energies
+  full_chain_grad_norms[step_index] = grad_norms
 
-  iter_onehot = F.one_hot(step_index, num_iterations)[Ellipsis, None]
-  iter_onehot = torch.broadcast_to(iter_onehot, full_chain_energies.shape)
+  # iter_onehot = F.one_hot(step_index, num_iterations)[Ellipsis, None]
+  # iter_onehot = torch.broadcast_to(iter_onehot, full_chain_energies.shape)
 
-  new_energies = energies * iter_onehot
-  full_chain_energies += new_energies
+  # new_energies = energies * iter_onehot
+  # full_chain_energies += new_energies
 
-  new_grad_norms = grad_norms * iter_onehot
-  full_chain_grad_norms += new_grad_norms
+  # new_grad_norms = grad_norms * iter_onehot
+  # full_chain_grad_norms += new_grad_norms
 
-  iter_onehot = iter_onehot[Ellipsis, None]
-  iter_onehot = torch.broadcast_to(iter_onehot, full_chain_actions.shape)
-  actions_expanded = actions[None, Ellipsis]
-  actions_expanded = torch.broadcast_to(actions_expanded, iter_onehot.shape)
-  new_actions_expanded = actions_expanded * iter_onehot
-  full_chain_actions += new_actions_expanded
+  # iter_onehot = iter_onehot[Ellipsis, None]
+  # iter_onehot = torch.broadcast_to(iter_onehot, full_chain_actions.shape)
+  # actions_expanded = actions[None, Ellipsis]
+  # actions_expanded = torch.broadcast_to(actions_expanded, iter_onehot.shape)
+  # new_actions_expanded = actions_expanded * iter_onehot
+  # full_chain_actions += new_actions_expanded
   return full_chain_actions, full_chain_energies, full_chain_grad_norms
 
 
@@ -381,7 +379,7 @@ def langevin_actions_given_obs(
 
   # you can go compute Nth energy and grad_norm if you'd like later.
   if late_fusion:
-    obs_encoding = energy_network.encode(observations, training=training)
+    obs_encoding = energy_network.encode(observations)
     obs_encoding = utils.tile_batch(obs_encoding, num_action_samples)
   else:
     obs_encoding = None
