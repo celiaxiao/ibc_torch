@@ -76,10 +76,10 @@ if __name__ == "__main__":
         for key in obs.keys():
             obs[key] = torch.tensor(obs[key].numpy())
     # old rgb [N, hist, W, H, C]
-    obs['rgb'] = obs['rgb'].permute(0,4, 2, 3, 1)
+    obs['rgb'] = obs['rgb'].permute(0, 4, 2, 3, 1)
     actions = torch.tensor(actions.numpy())
     model = pixel_ebm.PixelEBM(obs, action_spec.shape[0], "MaxConv", 'DenseResnetValue', N=NUM_SAMPLES)
     print(model)
     out = model((obs, actions))
-    print(out)
+    print(out.shape)
 

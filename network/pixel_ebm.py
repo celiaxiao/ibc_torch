@@ -36,7 +36,7 @@ class PixelEBM(nn.Module):
     self.target_width = target_width
     # image post precess has shape [N, 256]
     # actions has shape [N, action_dim]
-    input_dim = (256 + action_dim) * N
+    input_dim = (256 + action_dim) 
     self._value = get_value_network(value_network, input_dim)
 
     rgb_shape = obs_spec['rgb'].shape
@@ -67,10 +67,10 @@ class PixelEBM(nn.Module):
       observation_encoding = tile_batch(
           observation_encoding, num_samples)
 
-    print("after encoding", observation_encoding.shape)
+    # print("after encoding", observation_encoding.shape)
     # Concat [obs, act].
     x = torch.concat([observation_encoding, act], -1)
-    x = torch.flatten(x)
+    # x = torch.flatten(x)
     # Forward value network.
     x = self._value(x)
 

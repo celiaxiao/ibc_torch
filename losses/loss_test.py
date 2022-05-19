@@ -28,6 +28,7 @@ def test_emb_loss():
     # print("tf loss", loss_tf.shape)
     # print(loss_torch, loss_tf)
     # print("loss difference", loss_torch.numpy() - loss_tf.numpy(), np.max(loss_torch.numpy() - loss_tf.numpy()))
+    # np.allclose(loss_torch.numpy() - loss_tf.numpy())
     assert np.max(loss_torch.numpy() - loss_tf.numpy()) < 1e-5
     assert (loss_torch.shape== loss_tf.shape)
 
