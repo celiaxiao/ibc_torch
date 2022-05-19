@@ -1,14 +1,12 @@
 """Implements a tf_agents compatible mlp-ebm."""
-import gin
 from network import resnet, spectral_norm
 import torch.nn as nn
 import torch
 
 
-@gin.configurable
 class MLPEBM(nn.Module):
     """MLP-EBM compatible with tfagents."""
-
+    # TODO: figure out size
     def __init__(self,
                  input_dim,
                  out_dim,
@@ -50,7 +48,7 @@ class MLPEBM(nn.Module):
         # Concat [obs, act].
         x = torch.concat([obs, act], -1)
         # print("concat shape", x.shape)
-        x = torch.flatten(x).float()
+        # x = torch.flatten(x).float()
         # Forward mlp.
         x = self._mlp(x)
 

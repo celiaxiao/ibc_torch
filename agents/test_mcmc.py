@@ -10,6 +10,8 @@ import tensorflow as tf
 import os
 
 def test_compute_grad_norm():
+    print('------------test_compute_grad_norm-----------------')
+
     batch_size = 8
     n = 3
     de_dact = np.random.randn(batch_size,n+1)
@@ -34,6 +36,7 @@ def test_compute_grad_norm():
     grad_norm_tf = compute_grad_norm_tf('2', d_tf)
     # print(grad_norm_tf, grad_norm_torch)
     assert (np.round(grad_norm_tf.numpy(),4) == np.round(grad_norm_torch.numpy(),4)).all()
+    print('pass')
     
 
 def _test_batched_categorical_bincount_shapes( batch_size):
@@ -48,10 +51,15 @@ def _test_batched_categorical_bincount_shapes( batch_size):
     assert indices_counts.shape[1] == num_samples
 
 def test_batched_categorical_bincount_shapes():
+    print('------------test_batched_categorical_bincount_shapes-----------------')
+
     for batch_size in [1, 2]:
         _test_batched_categorical_bincount_shapes(batch_size)
+    print('pass')
 
 def test_batched_categorical_bincount_correct():
+    print('------------test_batched_categorical_bincount_correct-----------------')
+
     eps = 1e-6
     probs = np.array([[eps, eps, 1.-eps],
                         [eps, 1.-eps, eps]])
@@ -64,17 +72,18 @@ def test_batched_categorical_bincount_correct():
     # Assert the most-counted probs are correct.
     assert np.argmax(indices_counts[0]) == 2
     assert np.argmax(indices_counts[1]) == 1
+    print('pass')
 
-def _get_network_and_time_step(batch_size, num_actions_sample):
+def _get_network_and_time_step():
     env = gym.make("InvertedPendulum-v2")
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
     # print("obs space", env.observation_space, "action space",env.action_space)
     energy_network = mlp_ebm.MLPEBM((obs_dim + act_dim) \
-        * batch_size * num_actions_sample, act_dim*num_actions_sample)
+         , 1)
     return energy_network, env.reset()
 
-def _get_network_and_env_with_dict(batch_size, num_actions_sample):
+def _get_network_and_env_with_dict():
     env = ParticleEnv()
     # env = gym.make("CartPole-v1")
     # env = suite_gym.wrap_env(env)
@@ -85,9 +94,9 @@ def _get_network_and_env_with_dict(batch_size, num_actions_sample):
     if isinstance(env.observation_space.spaces, dict):
         num_dict = len(env.observation_space.spaces.keys())
     print("obs space", obs_dim, "action space",act_dim)
-    print("predict input shape", (obs_dim*num_dict+act_dim)*batch_size*num_actions_sample)
+    print("predict input shape", (obs_dim*num_dict+act_dim))
     energy_network = mlp_ebm.MLPEBM((obs_dim*num_dict + act_dim) \
-        * batch_size * num_actions_sample, act_dim*num_actions_sample)
+         , 1)
     return energy_network, env.reset()
 
 def _get_mock_energy_network():
@@ -124,6 +133,8 @@ def _get_mock_energy_network_tf():
     return EnergyNet()
 
 def test_gradient_wrt_act():
+    print('------------test_gradient_wrt_act-----------------')
+
     energy_network_torch = _get_mock_energy_network()
     # Forces network to create variables.
     energy_network_torch(((), torch.randn(1, 2)))
@@ -159,11 +170,14 @@ def test_gradient_wrt_act():
     # print("comparing output eneger", np.max(energy_tf.numpy() - energy_torch.detach().numpy()))
     assert np.max(deda_tf.numpy() - deda_torch.numpy()) < 0.01
     assert np.max(energy_tf.numpy() - energy_torch.detach().numpy()) < 0.01
+    print('pass')
 
 def test_shapes_iterative_dfo():
+    print('------------test_shapes_iterative_dfo-----------------')
+
     batch_size = 2
     num_action_samples = 2048
-    energy_network, time_step = _get_network_and_env_with_dict(batch_size, num_action_samples)
+    energy_network, time_step = _get_network_and_env_with_dict()
 
     obs = time_step
     # "Batch" the observations by replicating
@@ -194,9 +208,11 @@ def test_shapes_iterative_dfo():
         tfa_step_type=())
     assert action_samples.shape == init_action_samples.shape
     assert probs.shape[0] == batch_size * num_action_samples
+    print('pass')
 
 def test_correct_iterative_dfo():
-
+    print('------------test_correct_iterative_dfo-----------------')
+    
     energy_network = _get_mock_energy_network()
     # Forces network to create variables.
     energy_network(((), torch.randn(1, 2)))
@@ -223,8 +239,11 @@ def test_correct_iterative_dfo():
         tfa_step_type=())
     assert tf.linalg.norm(action_samples[np.argmax(probs)] - \
                             energy_network.mean) < 0.01
+    print('pass')
+
 
 def test_correct_langevin():
+    print('------------test_correct_langevin-----------------')
     batch_size = 2
     num_action_samples = 128
     energy_network = _get_mock_energy_network()
@@ -247,8 +266,11 @@ def test_correct_langevin():
         tfa_step_type=())
     assert torch.linalg.norm(action_samples[0] - \
                             energy_network.mean) < 0.1
+    print('pass')
+    
 # just check no runtime error
 def test_langevin_chain():
+    print('------------test_langevin_chain-----------------')
     batch_size = 2
     num_action_samples = 128
     energy_network = _get_mock_energy_network()
@@ -270,48 +292,54 @@ def test_langevin_chain():
         num_action_samples=num_action_samples,
         return_chain=True,
         tfa_step_type=())
+    print('pass')
+    
     # print("chain", chain_data.grad_norms.shape, chain_data.energies.shape,chain_data.actions.shape)
 
 def test_mlp():
+    print('------------test_mlp-----------------')
     batch_size = 2
     num_action_samples = 2048
-    energy_network, time_step = _get_network_and_time_step(batch_size, num_action_samples)
+    energy_network, time_step = _get_network_and_time_step()
     print("timestep", time_step)
     obs = torch.tensor(time_step)[None, Ellipsis]
     obs = torch.concat([obs] * (batch_size * num_action_samples),
-                            axis=0)
-    init_action_samples = np.random.rand(batch_size * num_action_samples,1)
+                            axis=0).float()
+    init_action_samples = np.random.rand(batch_size * num_action_samples,1).astype(dtype=np.float32)
     init_action_samples = torch.tensor(init_action_samples)
     # Forces network to create variables.
     out = energy_network((obs, init_action_samples))
     print(energy_network, energy_network._mlp._weight_layers)
-    print("out", out)
+    print("out", out.shape)
+    print('pass')
+
 
 def test_mlp_with_dict_env():
+    print('------------test_mlp_with_dict_env-----------------')
     batch_size = 2
     num_action_samples = 2048
-    energy_network, obs = _get_network_and_env_with_dict(batch_size, num_action_samples)
+    energy_network, obs = _get_network_and_env_with_dict()
     # "Batch" the observations by replicating
     for key in obs.keys():
         batch_obs = torch.tensor(obs[key])[None, Ellipsis]
         obs[key] = torch.concat([batch_obs] * (batch_size * num_action_samples),axis=0)
     # act dim = 2 
-    init_action_samples = np.random.rand(batch_size * num_action_samples,2)
+    init_action_samples = np.random.rand(batch_size * num_action_samples,2,).astype(dtype=np.float32)
     init_action_samples = torch.tensor(init_action_samples)
     # Forces network to create variables.
     out = energy_network((obs, init_action_samples))
     print(energy_network, energy_network._mlp._weight_layers)
-    print("out", out)
+    print("out", out.shape)
+    print('pass')
 
 if __name__ == "__main__":
-    # test_compute_grad_norm()
-    # test_batched_categorical_bincount_correct()
-    # test_batched_categorical_bincount_shapes()
-    # test_mlp()
-    # test_mlp_with_dict_env()
-    # test_shapes_iterative_dfo()
-    # test_correct_iterative_dfo()
-    # test_correct_langevin()
-    # test_gradient_wrt_act()
+    test_compute_grad_norm()
+    test_batched_categorical_bincount_correct()
+    test_batched_categorical_bincount_shapes()
+    test_mlp()
+    test_mlp_with_dict_env()
+    test_shapes_iterative_dfo()
+    test_correct_iterative_dfo()
+    test_correct_langevin()
     test_langevin_chain()
     
