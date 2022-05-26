@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 from typing import Protocol
+from network import mlp_ebm, pixel_ebm
 
 import torch
 import torch.nn as nn
@@ -12,7 +13,7 @@ from tqdm.auto import tqdm
 from . import experiment, models, optimizers
 
 
-class TrainStateProtocol(Protocol):
+class TrainStateProtocol():
     """Functionality that needs to be implemented by all training states."""
 
     model: nn.Module
@@ -51,8 +52,9 @@ class ExplicitTrainState:
     ) -> ExplicitTrainState:
         device = torch.device(device_type if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
-
-        model = models.ConvMLP(config=model_config)
+        print("config", model_config)
+        # model = models.ConvMLP(config=model_config)
+        model = mlp_ebm.MLPEBM()
         model.to(device)
 
         optimizer = torch.optim.Adam(
@@ -197,7 +199,7 @@ class ImplicitTrainState:
         # Get the original index of the positive. This will serve as the class label
         # for the loss.
         ground_truth = (permutation == 0).nonzero()[:, 1].to(self.device)
-
+        print("input", input.shape, "ground_truth", ground_truth.shape)
         # For every element in the mini-batch, there is 1 positive for which the EBM
         # should output a low energy value, and N negatives for which the EBM should
         # output high energy values.

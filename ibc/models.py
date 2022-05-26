@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .modules import CoordConv, GlobalAvgPool2d, GlobalMaxPool2d, SpatialSoftArgmax
+from ibc.modules import CoordConv, GlobalAvgPool2d, GlobalMaxPool2d, SpatialSoftArgmax
 
 
 class ActivationType(enum.Enum):
@@ -147,6 +147,7 @@ class ConvMLP(nn.Module):
         out = self.cnn(x, activate=True)
         out = F.relu(self.conv(out))
         out = self.reducer(out)
+        out = torch.flatten(out)
         out = self.mlp(out)
         return out
 

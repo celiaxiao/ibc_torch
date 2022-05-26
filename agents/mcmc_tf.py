@@ -22,6 +22,7 @@ import gin
 import numpy as np
 import tensorflow as tf
 from tf_agents.utils import nest_utils
+import torch
 
 # This global makes it easier to switch on/off tf.range in this file.
 # Which I am often doing in order to debug anything in the binaries
@@ -55,7 +56,7 @@ def categorical_bincount(count, log_ps, n):
     return bincounts
 
 
-@tf.function
+
 def iterative_dfo(network,
                   batch_size,  # B
                   observations,  # B*n x obs_spec or B x obs_spec if late_fusion
@@ -111,12 +112,11 @@ def iterative_dfo(network,
           network_state=policy_state,
           observation_encoding=obs_encodings)
     else:
-      net_logits, new_policy_state = network(
-          (observations, samples),
-          step_type=tfa_step_type,
-          network_state=policy_state,
-          training=training)
-
+      if not torch.is_tensor(samples):
+        samples = torch.tensor(samples.numpy())
+      net_logits = network(
+          (observations, samples))
+    net_logits = net_logits.cpu().numpy()
     # Shape is just (B * n), for example (4096,) for B=2, n=2048
     net_logits = tf.reshape(net_logits, (batch_size, num_action_samples))
     # Shape is now (B, n), for example (2, 2048) for B=2, n=2048
@@ -137,7 +137,7 @@ def iterative_dfo(network,
         my_range(batch_size * num_action_samples), actions_selected)
     repeat_indices = tf.ensure_shape(repeat_indices, actions_selected.shape)
     return log_probs, tf.gather(
-        samples, repeat_indices, axis=0), new_policy_state
+        samples.cpu().numpy(), repeat_indices, axis=0), policy_state
 
   log_probs, action_samples, new_policy_state = update_selected_actions_tf(
       action_samples, policy_state)
