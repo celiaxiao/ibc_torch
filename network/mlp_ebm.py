@@ -14,7 +14,8 @@ class MLPEBM(nn.Module):
                  depth=2,
                  rate=0.1,
                  activation='relu',
-                 dense_layer_type='regular'):
+                 dense_layer_type='regular',
+                 normalizer=None):
         super().__init__()
 
         # Define MLP.
@@ -22,7 +23,7 @@ class MLPEBM(nn.Module):
         # print("obs_dim", obs_dim, "hidden_sizes", hidden_sizes)
         self._mlp = resnet.ResNetLayer(
             hidden_sizes, rate, input_dim=input_dim,
-            dense_layer_type=dense_layer_type, activation=activation)\
+            dense_layer_type=dense_layer_type, activation=activation, normalizer=normalizer)
 
         # Define projection to energy.
         self._project_energy = nn.Linear(hidden_sizes[-1], out_dim)
@@ -36,19 +37,20 @@ class MLPEBM(nn.Module):
         # obs: dict of named obs_spec.
         # act:   [B x act_spec]
         obs, act = inputs
-
+        
         # TODO: must make sure we calculate correct input shape when we create the network
         # Combine dict of observations to concatenated tensor. [B x T x obs_spec] 
         if isinstance(obs, dict):
+            batch_size = obs[obs.keys()[0]].shape[0]
             obs = torch.concat([torch.flatten(obs[key]) for key in obs.keys()], axis=-1)
+        else:
+            batch_size = obs.shape[0]
         # Flatten obs across time: [B x T * obs_spec]
-        batch_size = act.shape[0]
         obs = torch.reshape(obs, [batch_size, -1])
-        # print(obs.shape)
+        # print(obs.shape, act.shape)
         # Concat [obs, act].
         x = torch.concat([obs, act], -1)
         # print("concat shape", x.shape)
-        # x = torch.flatten(x).float()
         # Forward mlp.
         x = self._mlp(x)
 

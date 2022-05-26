@@ -7,8 +7,8 @@ import torch.nn.functional as F
 def info_nce(predictions,
              batch_size,
              num_counter_examples,
-             softmax_temperature,
-             kl):
+             softmax_temperature = 1.,
+             kl = nn.KLDivLoss(reduction='none')):
   """EBM loss: can you classify the correct example?
 
   Args:
@@ -27,8 +27,10 @@ def info_nce(predictions,
 
   # [B x n+1] with 1 in column [:, -1]
   indices = torch.ones((batch_size,), dtype=torch.int64) * num_counter_examples
-  labels = F.one_hot(indices, num_classes=num_counter_examples + 1)
+  labels = F.one_hot(indices, num_classes=num_counter_examples + 1).float()
+  # print(softmaxed_predictions, labels)
+  # print("labels",labels.shape,"softmax",softmaxed_predictions.shape)
   # torch implementation: loss_pointwise = target * (target.log() - input)
-  per_example_loss = kl(softmaxed_predictions.log(), labels).sum(dim=-1)
+  per_example_loss = kl((softmaxed_predictions+1e-8).log(), labels).sum(dim=-1)
   # print("softmax predition", softmaxed_predictions, "label", labels)
   return per_example_loss, dict()

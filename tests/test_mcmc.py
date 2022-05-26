@@ -7,7 +7,6 @@ import torch.nn as nn
 from agents.mcmc import *
 from agents.mcmc_tf import compute_grad_norm_tf, gradient_wrt_act_tf
 import tensorflow as tf
-import os
 
 def test_compute_grad_norm():
     print('------------test_compute_grad_norm-----------------')
@@ -50,6 +49,23 @@ def _test_batched_categorical_bincount_shapes( batch_size):
     assert indices_counts.shape[0] == batch_size
     assert indices_counts.shape[1] == num_samples
 
+def test_bincount ():
+    batch_size = 1024
+    n = 256
+    probs = np.random.rand(batch_size, n).astype(np.float32)
+    count = 256
+    for i in range(batch_size):
+      probs[i] = probs[i] / probs[i].sum() 
+    log_ps = torch.tensor(probs+ 1e-6).log()
+    m = torch.distributions.Categorical(logits=log_ps)
+    samples = m.sample([count]).T
+    bincounts_tf = tf.math.bincount(samples, minlength=n, maxlength=n, axis=-1)
+    # samples.scatter_add_(-1, samples.clone(), torch.ones(samples.shape, dtype = samples.dtype))
+    intervals = torch.arange(batch_size) * n # [batch_size,]
+    intervals = intervals[:,None].expand(samples.shape) # [B,n]
+    bincounts_torch = torch.bincount((samples+intervals).reshape(-1), minlength=n*batch_size).reshape([batch_size, n]) # [B, n]
+    assert np.allclose(bincounts_tf.numpy(), bincounts_torch.numpy())
+    
 def test_batched_categorical_bincount_shapes():
     print('------------test_batched_categorical_bincount_shapes-----------------')
 
@@ -203,9 +219,7 @@ def test_shapes_iterative_dfo():
         min_actions=np.array([0., 0.]).astype(np.float32),
         max_actions=np.array([1., 1.]).astype(np.float32),
         num_iterations=3,
-        iteration_std=1e-1,
-        training=False,
-        tfa_step_type=())
+        iteration_std=1e-1,)
     assert action_samples.shape == init_action_samples.shape
     assert probs.shape[0] == batch_size * num_action_samples
     print('pass')
@@ -234,9 +248,7 @@ def test_correct_iterative_dfo():
         min_actions=np.array([0., 0.]).astype(np.float32),
         max_actions=np.array([1., 1.]).astype(np.float32),
         num_iterations=10,
-        iteration_std=1e-1,
-        training=False,
-        tfa_step_type=())
+        iteration_std=1e-1,)
     assert tf.linalg.norm(action_samples[np.argmax(probs)] - \
                             energy_network.mean) < 0.01
     print('pass')
@@ -333,13 +345,13 @@ def test_mlp_with_dict_env():
     print('pass')
 
 if __name__ == "__main__":
-    test_compute_grad_norm()
-    test_batched_categorical_bincount_correct()
-    test_batched_categorical_bincount_shapes()
-    test_mlp()
-    test_mlp_with_dict_env()
-    test_shapes_iterative_dfo()
-    test_correct_iterative_dfo()
-    test_correct_langevin()
-    test_langevin_chain()
-    
+    # test_compute_grad_norm()
+    # test_batched_categorical_bincount_correct()
+    # test_batched_categorical_bincount_shapes()
+    # test_mlp()
+    # test_mlp_with_dict_env()
+    # test_shapes_iterative_dfo()
+    # test_correct_iterative_dfo()
+    # test_correct_langevin()
+    # test_langevin_chain()
+    test_bincount()
