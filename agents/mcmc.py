@@ -159,21 +159,14 @@ def iterative_dfo(network,
 def gradient_wrt_act(energy_network,
                      observations,
                      actions,
-                     training,
-                     network_state,
-                     tfa_step_type,
-                     apply_exp,
+                     apply_exp:bool,
                      obs_encoding=None):
   """Compute dE(obs,act)/dact, also return energy."""
-  # with tf.GradientTape() as g:
-    # g.watch(actions)
-  # action_grad = actions.clone().detach().requires_grad_(True)
-  actions.requires_grad_(True)
+  actions = torch.autograd.Variable(actions, requires_grad=True)
   if obs_encoding is not None:
     energies = energy_network((observations, actions),
                                   observation_encoding=obs_encoding)
   else:
-    # print('check grad wrt action', observations.shape, actions.shape)
     energies = energy_network((observations, actions))
   # If using a loss function that involves the exp(energies),
   # should we apply exp() to the energy when taking the gradient?
@@ -181,10 +174,9 @@ def gradient_wrt_act(energy_network,
     energies = torch.exp(energies)
   # My energy sign is flipped relative to Igor's code,
   # so -1.0 here.
-  # print("gradient wrt action", energies.shape, actions.shape)
-  # print("tring to compute energy gradient", energies)
-  energies.sum().backward()
-  denergies_dactions = actions.grad.data * -1.0
+  denergies_dactions = -1 * torch.autograd.grad(outputs=energies, inputs=actions, 
+        grad_outputs=torch.ones(energies.size()),
+        create_graph=True, retain_graph=True)[0]
   return denergies_dactions, energies
 
 
@@ -206,9 +198,6 @@ def compute_grad_norm(grad_norm_type, de_dact):
 def langevin_step(energy_network,
                   observations,
                   actions,
-                  training,
-                  policy_state,
-                  tfa_step_type,
                   noise_scale,
                   grad_clip,
                   delta_action_clip,
@@ -224,9 +213,6 @@ def langevin_step(energy_network,
   de_dact, energies = gradient_wrt_act(energy_network,
                                        observations,
                                        actions,
-                                       training,
-                                       policy_state,
-                                       tfa_step_type,
                                        apply_exp,
                                        obs_encoding)
   # min_actions = torch.tensor(min_actions)
@@ -304,22 +290,6 @@ def update_chain_data(num_iterations,
   full_chain_actions[step_index] = actions
   full_chain_energies[step_index] = energies
   full_chain_grad_norms[step_index] = grad_norms
-
-  # iter_onehot = F.one_hot(step_index, num_iterations)[Ellipsis, None]
-  # iter_onehot = torch.broadcast_to(iter_onehot, full_chain_energies.shape)
-
-  # new_energies = energies * iter_onehot
-  # full_chain_energies += new_energies
-
-  # new_grad_norms = grad_norms * iter_onehot
-  # full_chain_grad_norms += new_grad_norms
-
-  # iter_onehot = iter_onehot[Ellipsis, None]
-  # iter_onehot = torch.broadcast_to(iter_onehot, full_chain_actions.shape)
-  # actions_expanded = actions[None, Ellipsis]
-  # actions_expanded = torch.broadcast_to(actions_expanded, iter_onehot.shape)
-  # new_actions_expanded = actions_expanded * iter_onehot
-  # full_chain_actions += new_actions_expanded
   return full_chain_actions, full_chain_energies, full_chain_grad_norms
 
 
@@ -328,13 +298,10 @@ def langevin_actions_given_obs(
     energy_network,
     observations,  # B*n x obs_spec or B x obs_spec if late_fusion
     action_samples,  # B*n x act_spec
-    policy_state,
     min_actions,
     max_actions,
     num_action_samples,
     num_iterations=25,
-    training=False,
-    tfa_step_type=(),
     sampler_stepsize_init=1e-1,
     sampler_stepsize_decay=0.8,  # if using exponential langevin rate.
     noise_scale=1.0,
@@ -389,9 +356,6 @@ def langevin_actions_given_obs(
     actions, energies, grad_norms = langevin_step(energy_network,
                                                   observations,
                                                   actions,
-                                                  training,
-                                                  policy_state,
-                                                  tfa_step_type,
                                                   noise_scale,
                                                   grad_clip,
                                                   delta_action_clip,
@@ -430,11 +394,10 @@ def get_probabilities(energy_network,
                       num_action_samples,
                       observations,
                       actions,
-                      training,
                       temperature=1.0):
   """Get probabilities to post-process Langevin results."""
   net_logits, _ = energy_network(
-      (observations, actions), training=training)
+      (observations, actions))
   net_logits = torch.reshape(net_logits, (batch_size, num_action_samples))
   probs = F.softmax(net_logits / temperature, dim=1)
   probs = torch.reshape(probs, (-1,))

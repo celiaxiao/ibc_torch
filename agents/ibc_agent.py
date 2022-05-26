@@ -43,7 +43,7 @@ class ImplicitBCAgent():
                num_counter_examples=256,
                debug_summaries = False,
                summarize_grads_and_vars = False,
-               train_step_counter = None,
+               train_step_counter = 0,
                name = None,
                fraction_dfo_samples=0.,
                fraction_langevin_samples=1.0,
@@ -86,6 +86,8 @@ class ImplicitBCAgent():
     self._late_fusion = late_fusion
     self._compute_mse = compute_mse
 
+    self.train_step_counter = train_step_counter
+
     # Collect policy would normally be used for data collection. In a BCAgent
     # we don't expect to use it, unless we want to upgrade this to a DAGGER like
     # setup.
@@ -102,12 +104,21 @@ class ImplicitBCAgent():
     if self.ebm_loss_type == 'info_nce':
       self._kl = nn.KLDivLoss(reduction='none')
 
+  def train(self, experience):
+    loss_info = self._loss(experience)
+    assert torch.isfinite(loss_info['loss']).all()
+    self._optimizer.zero_grad()
+    loss_info['loss'].sum().backward()
+    self._optimizer.step()
+    self.train_step_counter += 1
+    return loss_info
+
+  def get_eval_loss(self, experience):
+    loss_dict = self._loss(experience,)
+    return loss_dict
 # 
   def _loss(self,
-            experience,
-            variables_to_train=None,
-            weights = None,
-            training = False):
+            experience):
     # ** Note **: Obs spec includes time dim. but hilighted here since we have
     # to deal with it.
     # Observation: [B , T , obs_spec]
@@ -136,28 +147,14 @@ class ImplicitBCAgent():
 
     # [B x 1 x act_spec]
     expanded_actions = actions[:,None]
-    # generate counter examples outside gradient tape
+    # generate counter examples
     if not self._run_full_chain_under_gradient:
       counter_example_actions, combined_true_counter_actions, chain_data = (
           self._make_counter_example_actions(observations,
                                              expanded_actions, batch_size))
-
-    # with tf.GradientTape(watch_accessed_variables=False) as tape:
-    if variables_to_train:
-        variables_to_train.requires_grad_(True)
-    # tape.watch(variables_to_train)
-#   with tf.name_scope('loss'):
-
-    # generate counter examples inside gradient tape
-    if self._run_full_chain_under_gradient:
-        counter_example_actions, combined_true_counter_actions, chain_data = (
-            self._make_counter_example_actions(observations,
-                                                expanded_actions, batch_size))
-
     if self._late_fusion:
         # Do one cheap forward pass.
-        obs_embeddings = self.cloning_network.encode(maybe_tiled_obs,
-                                                    training=True)
+        obs_embeddings = self.cloning_network.encode(maybe_tiled_obs)
         # Tile embeddings to match actions.
         obs_embeddings = tile_batch(
             obs_embeddings, self._num_counter_examples + 1)
@@ -190,7 +187,6 @@ class ImplicitBCAgent():
             chain_data,
             maybe_tiled_obs,
             combined_true_counter_actions,
-            training,
         )
         per_example_loss += grad_loss
     else:
@@ -208,7 +204,7 @@ class ImplicitBCAgent():
     # total_loss = agg_loss.total_loss
 
     losses_dict = {
-        'ebm_total_loss': per_example_loss
+        'loss': per_example_loss
     }
 
     losses_dict.update(debug_dict)
@@ -305,7 +301,6 @@ class ImplicitBCAgent():
             self.cloning_network,
             maybe_tiled_obs_n,
             random_uniform_example_actions,
-            policy_state=(),
             min_actions=self.min_action,
             max_actions=self.max_action,
             return_chain=self._return_full_chain,
