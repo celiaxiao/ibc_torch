@@ -1,9 +1,9 @@
 from agents.utils import tile_batch
-from network import conv_maxpool, dense_resnet_value
+from network.layers import conv_maxpool, dense_resnet_value
 import torch
 import torch.nn as nn
 import gin
-from network import image_prepro
+from network.utils import image_prepro
 def get_encoder_network(encoder_network, channels):
     return conv_maxpool.get_conv_maxpool(channels)
 

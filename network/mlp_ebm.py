@@ -1,5 +1,5 @@
 """Implements a tf_agents compatible mlp-ebm."""
-from network import resnet, spectral_norm
+from network.layers import resnet, spectral_norm
 import torch.nn as nn
 import torch
 

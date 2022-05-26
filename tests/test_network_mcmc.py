@@ -103,7 +103,7 @@ def train(useGaussian:bool, use_tf:bool = False):
         # get sampling space max and min
         large_sample = gmm.sample([10000])
         act_shape = [1]
-        exp_name = 'use_gaussian_initialization_unbounded'
+        exp_name = 'use_gaussian_spectralnorm'
         # plt.title('Demo Gaussian Mixture Model')
         
     else:
@@ -125,8 +125,8 @@ def train(useGaussian:bool, use_tf:bool = False):
     
     # default obs
     obs = torch.rand([batch_size,1], dtype=torch.float32)
-    network = mlp_ebm.MLPEBM((act_shape[0]+1) , 1, normalizer='Batch').to(device)
-    # print (network,[param.shape for param in list(network.parameters())] )
+    network = mlp_ebm.MLPEBM((act_shape[0]+1) , 1, normalizer='Batch', dense_layer_type="spectral_norm").to(device)
+    print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=1e-5)
     maybe_tiled_obs = tile_batch(obs, num_counter_sample + 1)
 
@@ -139,13 +139,13 @@ def train(useGaussian:bool, use_tf:bool = False):
             data = torch.tensor(target_data)[:,None].float()
 
         # [B * n , act_spec], [B * (n + 1) , act_spec]
-        with torch.no_grad():
-            counter_example_actions, combined_true_counter_actions = \
+        
+        counter_example_actions, combined_true_counter_actions = \
                 make_counter_example_actions(obs, data,batch_size,network,\
                     num_counter_sample, act_shape, act_min=sample_min, 
                     act_max=sample_max, use_tf=use_tf)
         network_inputs = (maybe_tiled_obs,
-                        combined_true_counter_actions)
+                        combined_true_counter_actions.detach())
         # [B * n+1]
         predictions = network(network_inputs)
         # print("check counter example shape",counter_example_actions.shape, combined_true_counter_actions.shape)

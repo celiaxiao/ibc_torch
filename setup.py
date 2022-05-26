@@ -19,5 +19,6 @@ setup(
     name='concept',
     version='0.0.1',
     install_requires=install_requires,
-    py_modules=['agents', 'ibc', 'losses','network','environments','tests']
+    py_modules=['agents', 'ibc', 'losses','network','environments','tests',
+        'network.layers','network.utils']
 )
