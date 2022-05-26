@@ -59,16 +59,17 @@ def train(useGaussian:bool):
     
     # default obs
     obs = torch.rand([batch_size,1], dtype=torch.float32)
-    network = mlp_ebm.MLPEBM((act_shape[0]+1) , 1).to(device)
-    # print (network,[param.shape for param in list(network.parameters())] )
+    network = mlp_ebm.MLPEBM((act_shape[0]+1) , 1, dense_layer_type='spectral_norm').to(device)
+    print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=1e-3)
 
     agent = ibc_agent.ImplicitBCAgent(time_step_spec=1, action_spec=1, cloning_network=network,
         optimizer=optim, num_counter_examples=num_counter_sample,
         min_action=large_sample.min(), max_action= large_sample.max())
     data = get_distribution_sample(batch_size)
-    loss_dict = agent._loss((obs,data))
+    loss_dict = agent.train((obs,data))
     print(loss_dict)
+    print('current step', agent.train_step_counter)
 
 if __name__ == '__main__':
     torch.set_default_tensor_type(torch.cuda.FloatTensor)

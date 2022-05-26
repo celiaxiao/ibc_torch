@@ -19,14 +19,13 @@ import gin
 from agents import mcmc
 import torch
 
-@gin.configurable
+# small gradient will result 0 gradient penalty
 def grad_penalty(energy_network,
                  grad_norm_type,
                  batch_size,
                  chain_data,
                  observations,
                  combined_true_counter_actions,
-                 training,
                  only_apply_final_grad_penalty=True,
                  grad_margin=1.0,
                  square_grad_penalty=True,
@@ -39,11 +38,7 @@ def grad_penalty(energy_network,
         energy_network,
         observations,
         combined_true_counter_actions,
-        training,
-        network_state=(),
-        tfa_step_type=(),
         apply_exp=False)  # TODO(peteflorence): config this.
-
     # grad norms should now be shape (b*(n+1))
     grad_norms = mcmc.compute_grad_norm(grad_norm_type, de_dact)
     grad_norms = torch.reshape(grad_norms, (batch_size, -1))
@@ -68,6 +63,5 @@ def grad_penalty(energy_network,
 
   if square_grad_penalty:
     grad_norms = grad_norms**2
-
   grad_loss = torch.mean(grad_norms, dim=1)
   return grad_loss * grad_loss_weight

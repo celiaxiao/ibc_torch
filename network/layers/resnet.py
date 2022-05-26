@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from network.spectral_norm import SpectralNorm
+from network.layers.spectral_norm import SpectralNorm
 
 
 class ResNetLayer(nn.Module):
