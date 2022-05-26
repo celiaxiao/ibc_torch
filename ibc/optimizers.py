@@ -44,7 +44,7 @@ class StochasticOptimizerConfig:
     """The number of candidates to sample per iter during inference."""
 
 
-class StochasticOptimizer(Protocol):
+class StochasticOptimizer():
     """Functionality that needs to be implemented by all stochastic optimizers."""
 
     device: torch.device

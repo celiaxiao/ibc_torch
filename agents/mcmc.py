@@ -44,15 +44,14 @@ def categorical_bincount(count, log_ps, n):
     """
     # TODO: use default tensor for now (source:Force CPU since it's about 3x faster on CPU than GPU for current models.
     # samples shape: [B x n]
-    # samples = torch.random.categorical(log_ps, num_samples=count, dtype=torch.int32)
-    samples = torch.multinomial(torch.exp(log_ps), num_samples=count, replacement=True) # multinomial need probs
-    # bincounts = tf.math.bincount(
-    #     samples, minlength=n, maxlength=n, axis=-1)
-    batch_size, count = samples.shape
+    batch_size, _ = log_ps.shape
+    m = torch.distributions.Categorical(logits=log_ps)
+    samples = m.sample([count]).T # [B, n]
     # intervals is used to separate tensor within each batch
     intervals = torch.arange(batch_size) * n # [batch_size,]
     intervals = intervals[:,None].expand(samples.shape) # [B,n]
-    bincounts = torch.bincount((samples+intervals).reshape(-1), minlength=n*batch_size).reshape([batch_size, n]) # [B, n]
+    bincounts = torch.bincount((samples+intervals).reshape(-1), 
+          minlength=n*batch_size).reshape([batch_size, n]) # [B, n]
     return bincounts
 
 
@@ -67,9 +66,7 @@ def iterative_dfo(network,
                   temperature=1.0,
                   num_iterations=3,
                   iteration_std=0.33,
-                  training=False,
-                  late_fusion=False,
-                  tfa_step_type=()):
+                  late_fusion=False,):
   """Update samples through ~Metropolis Hastings / CEM.
 
   Args:
@@ -91,7 +88,6 @@ def iterative_dfo(network,
       iteration.
     training: whether or not model is training.
     late_fusion: whether or not we are doing late fusion pixel-ebm.
-    tfa_step_type: TF Agents step type.
   Returns:
     optimized probabilities, action_samples, new_policy_state
   """
@@ -102,6 +98,7 @@ def iterative_dfo(network,
     obs_encodings = utils.tile_batch(obs_encodings, num_action_samples)
 
   def update_selected_actions(samples, policy_state):
+    assert not torch.isnan(samples).all()
     if late_fusion:
       # Repeatedly hand in the precomputed obs encodings.
       # TODO: what is obs_encoding?
@@ -117,6 +114,8 @@ def iterative_dfo(network,
     # Shape is now (B, n), for example (2, 2048) for B=2, n=2048
     # Note: bincount takes log probabilities, and doesn't expect normalized,
     # so can skip softmax.
+    
+    assert not torch.isnan(net_logits).all()
     log_probs = net_logits / temperature
     # Shape is still (B, n), for example (2, 2048) for B=2, n=2048
     actions_selected = categorical_bincount(num_action_samples, log_probs,
@@ -125,7 +124,7 @@ def iterative_dfo(network,
     # actions_selected = tf.ensure_shape(actions_selected, log_probs.shape)
     assert actions_selected.shape == log_probs.shape
     # actions_selected = tf.cast(actions_selected, dtype=tf.int32)
-    actions_selected = actions_selected.type(torch.IntTensor)
+    actions_selected = actions_selected.int()
 
     # Flatten back to (B * n), for example (4096,) for B=2, n=2048
     actions_selected = torch.reshape(actions_selected, (-1,))
@@ -139,8 +138,8 @@ def iterative_dfo(network,
 
   log_probs, action_samples, new_policy_state = update_selected_actions(
       action_samples, policy_state)
-  min_actions = torch.tensor(min_actions)
-  max_actions = torch.tensor(max_actions)
+  # min_actions = torch.tensor(min_actions)
+  # max_actions = torch.tensor(max_actions)
   for _ in my_range(num_iterations - 1):
     # tf normal distribution default with mean=0.0, stddev=1.0,
     action_samples += torch.normal(mean=0,std=1,size=action_samples.shape) * iteration_std
@@ -174,6 +173,7 @@ def gradient_wrt_act(energy_network,
     energies = energy_network((observations, actions),
                                   observation_encoding=obs_encoding)
   else:
+    # print('check grad wrt action', observations.shape, actions.shape)
     energies = energy_network((observations, actions))
   # If using a loss function that involves the exp(energies),
   # should we apply exp() to the energy when taking the gradient?
@@ -182,6 +182,7 @@ def gradient_wrt_act(energy_network,
   # My energy sign is flipped relative to Igor's code,
   # so -1.0 here.
   # print("gradient wrt action", energies.shape, actions.shape)
+  # print("tring to compute energy gradient", energies)
   energies.sum().backward()
   denergies_dactions = actions.grad.data * -1.0
   return denergies_dactions, energies
@@ -352,8 +353,8 @@ def langevin_actions_given_obs(
   # actions = tf.identity(action_samples)
   identity =  nn.Identity()
   actions = identity(action_samples)
-  min_actions = torch.tensor(min_actions)
-  max_actions = torch.tensor(max_actions)
+  # min_actions = torch.tensor(min_actions)
+  # max_actions = torch.tensor(max_actions)
   if use_polynomial_rate:
     schedule = PolynomialSchedule(sampler_stepsize_init, sampler_stepsize_final,
                                   sampler_stepsize_power, num_iterations)
