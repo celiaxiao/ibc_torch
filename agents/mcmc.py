@@ -161,7 +161,10 @@ def gradient_wrt_act(energy_network,
                      actions,
                      apply_exp:bool,
                      obs_encoding=None):
-  """Compute dE(obs,act)/dact, also return energy."""
+  """Compute dE(obs,act)/dact, also return energy.
+    pytorch gradient panelty source: 
+    https://github.com/caogang/wgan-gp/blob/ae47a185ed2e938c39cf3eb2f06b32dc1b6a2064/gan_mnist.py#L143
+  """
   actions = torch.autograd.Variable(actions, requires_grad=True)
   if obs_encoding is not None:
     energies = energy_network((observations, actions),
@@ -365,9 +368,7 @@ def langevin_actions_given_obs(
                                                   max_actions,
                                                   grad_norm_type,
                                                   obs_encoding)
-    # TODO: i don't see the graph of gradients of 'actions' is populated
     if stop_chain_grad:
-      # actions = tf.stop_gradient(actions)
       actions = actions.detach()
     stepsize = schedule.get_rate(step_index + 1)  # Get it for the next round.
 
