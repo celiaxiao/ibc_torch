@@ -20,7 +20,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import tqdm
-
+import tensorflow as tf
 class RunningMeanStd(object):
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
     def __init__(self, epsilon=1e-4, shape=()):
@@ -79,7 +79,7 @@ def compute_dataset_statistics(dataset, num_samples, nested_obs=True,
                                nested_actions=False,
                                min_max_actions=False,
                                use_sqrt_std=False):
-  """Uses Chan's algorithm to compute mean, std in a single pass.
+  """Uses running mean to compute mean, std in a single pass.
 
   Args:
     dataset: Dataset to compute statistics on. Should return batches of (obs,
@@ -184,7 +184,7 @@ def compute_dataset_statistics(dataset, num_samples, nested_obs=True,
           MinMaxDenormalizationLayer(vmin=min_actions, vmax=max_actions))
 
   if nested_obs:
-    pass
+    obs_norm_layers = nestNormLayer(obs_norm_layers)
   else:
     obs_norm_layers = obs_norm_layers[0]
 
@@ -203,13 +203,17 @@ def compute_dataset_statistics(dataset, num_samples, nested_obs=True,
 EPS = torch.tensor(np.finfo(np.float32).eps)
 
 class nestNormLayer(nn.Module):
-  def __init__(self, obs_norm_layers):
+  def __init__(self, obs_norm_layers:list):
+    super().__init__()
     self.obs_norm_layers = obs_norm_layers
   
-  def forward(self, observations):
+  def forward(self, observations:dict):
     for index, key in enumerate(observations):
       obs = observations[key]
+      if not torch.is_tensor(obs):
+        obs = torch.tensor(obs)
       observations[key] = self.obs_norm_layers[index](obs)
+    return observations
 
 
 class IdentityLayer(nn.Module):
@@ -231,6 +235,8 @@ class StdNormalizationLayer(nn.Module):
     self._std = torch.tensor(std).float()
 
   def forward(self, vector, ):
+    if not torch.is_tensor(vector):
+        vector = torch.tensor(vector)
     vector = vector.float()
     return (vector - self._mean) / torch.maximum(self._std, EPS)
 
@@ -244,6 +250,8 @@ class StdDenormalizationLayer(nn.Module):
     self._std = torch.tensor(std).float()
 
   def forward(self, vector, mean_offset=True, ):
+    if not torch.is_tensor(vector):
+        vector = torch.tensor(vector)
     vector = vector.float()
     result = (vector * torch.maximum(self._std, EPS))
     if mean_offset:
@@ -267,6 +275,8 @@ class MinMaxNormalizationLayer(MinMaxLayer):
   """Maps an un-normalized vector to -1, 1."""
 
   def forward(self, vector, ):
+    if not torch.is_tensor(vector):
+        vector = torch.tensor(vector)
     vector = vector.float()
     return (vector - self._mean_range) / self._half_range
 
@@ -275,5 +285,7 @@ class MinMaxDenormalizationLayer(MinMaxLayer):
   """Maps -1, 1 vector back to un-normalized."""
 
   def forward(self, vector, ):
+    if not torch.is_tensor(vector):
+        vector = torch.tensor(vector)
     vector = vector.float()
     return (vector * self._half_range) + self._mean_range

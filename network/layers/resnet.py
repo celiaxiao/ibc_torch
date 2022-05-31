@@ -64,28 +64,20 @@ class ResNetLayer(nn.Module):
         # print("check resnet", self._weight_layers, self._activation_layers,self._norm_layers, self._dropouts)
 
     def forward(self, x):
-        # print("getting _projection_layer input in resnet", x)
         x = self._projection_layer(x)
-        # print("getting _projection_layer out in resnet", x)
         # Do forward pass through resnet layers.
         for l in range(0,len(self._weight_layers),2):
-            assert not torch.isnan(x).any()
             x_start_block = self.identity(x)
             if self.normalizer is not None:
                 x = self._norm_layers[l](x)
-                assert not torch.isnan(x).any()
             x = self._activation_layers[l](x)
             x = self._dropouts[l](x)
             x = self._weight_layers[l](x)
-            assert not torch.isnan(x).any()
             # repeat and add the initial input
             if self.normalizer is not None:
                 x = self._norm_layers[l+1](x)
-                assert not torch.isnan(x).any()
             x = self._activation_layers[l+1](x)
             x = self._dropouts[l+1](x)
             x = self._weight_layers[l+1](x)
-            assert not torch.isnan(x).any()
             x = x_start_block + x
-            assert not torch.isnan(x).any()
         return x
