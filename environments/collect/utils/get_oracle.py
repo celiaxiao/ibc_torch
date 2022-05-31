@@ -14,8 +14,8 @@
 # limitations under the License.
 
 """Gets oracles."""
-import ibc.environments.block_pushing.oracles.oriented_push_oracle as oriented_push_oracle_module
-import ibc.environments.block_pushing.oracles.reach_oracle as reach_oracle_module
+import environments.block_pushing.oracles.oriented_push_oracle as oriented_push_oracle_module
+import environments.block_pushing.oracles.reach_oracle as reach_oracle_module
 
 
 def get_oracle(env, task):

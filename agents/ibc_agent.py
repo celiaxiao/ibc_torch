@@ -44,7 +44,6 @@ class ImplicitBCAgent():
                debug_summaries = False,
                summarize_grads_and_vars = False,
                train_step_counter = 0,
-               name = None,
                fraction_dfo_samples=0.,
                fraction_langevin_samples=1.0,
                ebm_loss_type='info_nce',
@@ -256,7 +255,7 @@ class ImplicitBCAgent():
     random_uniform_example_actions = \
         torch.distributions.uniform.Uniform(self.min_action,self.max_action).sample(\
             [batch_size, self._num_counter_examples, self._action_spec])
-    print("check random uniform sample shape", random_uniform_example_actions.shape)
+    # print("check random uniform sample shape", random_uniform_example_actions.shape)
     # If not optimizing, just return.
     if (self._fraction_dfo_samples == 0.0 and
         self._fraction_langevin_samples == 0.0):
@@ -292,7 +291,7 @@ class ImplicitBCAgent():
             min_actions=self.min_action,
             max_actions=self.max_action,
             late_fusion=self._late_fusion,)
-
+        chain_data = None
       lang_opt_counter_example_actions = None
       if self._fraction_langevin_samples > 0.:
         # TODO(peteflorence): in the case of using a fraction <1.0,
@@ -372,7 +371,7 @@ class ImplicitBCAgent():
     # [B * (n + 1) x act_spec]
     # combined_true_counter_actions = tf.nest.map_structure(
     #     concat_and_squash_actions, counter_example_actions, expanded_actions)
-    print("check counter example shape",counter_example_actions.shape, expanded_actions.shape)
+    # print("check counter example shape",counter_example_actions.shape, expanded_actions.shape)
     combined_true_counter_actions = concat_and_squash_actions(counter_example_actions, expanded_actions)
 
     return counter_example_actions, combined_true_counter_actions, chain_data
