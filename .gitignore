@@ -2,5 +2,6 @@ __pycache__/
 experiments/
 concept.egg-info/*
 */mcmc_exp/*
+*/agent_exp/*
 */losses_tf.py
 */mcmc_tf.py

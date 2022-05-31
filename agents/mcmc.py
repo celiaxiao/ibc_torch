@@ -305,7 +305,7 @@ def langevin_actions_given_obs(
     max_actions,
     num_action_samples,
     num_iterations=25,
-    sampler_stepsize_init=1e-1,
+    sampler_stepsize_init=5e-1, #TODO: set this larger for larger stepsize, used to be 0.1
     sampler_stepsize_decay=0.8,  # if using exponential langevin rate.
     noise_scale=1.0,
     grad_clip=None,
@@ -397,7 +397,7 @@ def get_probabilities(energy_network,
                       actions,
                       temperature=1.0):
   """Get probabilities to post-process Langevin results."""
-  net_logits, _ = energy_network(
+  net_logits = energy_network(
       (observations, actions))
   net_logits = torch.reshape(net_logits, (batch_size, num_action_samples))
   probs = F.softmax(net_logits / temperature, dim=1)

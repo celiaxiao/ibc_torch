@@ -140,7 +140,7 @@ class StochasticOptimizerType(enum.Enum):
 
 
 if __name__ == "__main__":
-    from dataset import CoordinateRegression, DatasetConfig
+    from ibc.dataset import CoordinateRegression, DatasetConfig
 
     dataset = CoordinateRegression(DatasetConfig(dataset_size=10))
     bounds = dataset.get_target_bounds()
