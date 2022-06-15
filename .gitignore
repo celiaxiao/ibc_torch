@@ -3,5 +3,9 @@ experiments/
 concept.egg-info/*
 */mcmc_exp/*
 */agent_exp/*
+*/policy_exp/*
+*/mse_exp/*
 */losses_tf.py
 */mcmc_tf.py
+*/particle_oracle/*
+*/trajectory/*

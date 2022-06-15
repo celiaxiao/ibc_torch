@@ -110,7 +110,7 @@ if __name__ == '__main__':
     env_name = get_env_name(task='PARTICLE', 
         shared_memory_eval=False, use_image_obs=False)
     create_train_and_eval_fns_unnormalized = data_module.get_data_fns(
-        dataset_path='data/particle/2d_oracle_particle*.tfrecord',
+        dataset_path='data/particle/2d_oracle_particle_1.tfrecord',
     sequence_length=2, replay_capacity=10000, batch_size=batch_size, for_rnn=False,
     dataset_eval_fraction=0.0, flatten_action=True)
     train_data, _ = create_train_and_eval_fns_unnormalized()
@@ -122,17 +122,19 @@ if __name__ == '__main__':
     #   experience,  _ = temp
     #   obs, act = experience
     #   print([obs[key].shape for key in obs], act.shape)
-    #   break
-    (norm_info, norm_train_data_fn) = get_normalizers(
-      train_data, batch_size, env_name, nested_obs=True)
-    print(norm_info)
-    create_train_and_eval_fns = data_module.get_data_fns(
-        dataset_path='data/particle/2d_oracle_particle*.tfrecord',
-    sequence_length=2, replay_capacity=10000, batch_size=batch_size, for_rnn=False,
-    dataset_eval_fraction=0.0, flatten_action=True, norm_function=norm_train_data_fn)
-    train_data, _ = create_train_and_eval_fns()
-    print(train_data)
+    # #   break
+
+    # (norm_info, norm_train_data_fn) = get_normalizers(
+    #   train_data, batch_size, env_name, nested_obs=True)
+    # print(norm_info)
+    # create_train_and_eval_fns = data_module.get_data_fns(
+    #     dataset_path='data/particle/2d_oracle_particle*.tfrecord',
+    # sequence_length=2, replay_capacity=10000, batch_size=batch_size, for_rnn=False,
+    # dataset_eval_fraction=0.0, flatten_action=True, norm_function=norm_train_data_fn)
+    # train_data, _ = create_train_and_eval_fns()
+    # print(train_data)
+    # count = 0
     for batch in train_dataloader(train_data):
-      print(norm_train_data_fn(batch))
-      break
+      print(batch)
+      
 

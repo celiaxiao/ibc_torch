@@ -64,7 +64,7 @@ def train(useGaussian:bool):
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=1e-5)
 
-    agent = ibc_agent.ImplicitBCAgent(time_step_spec=1, action_spec=1, cloning_network=network,
+    agent = ibc_agent.ImplicitBCAgent( action_spec=1, cloning_network=network,
         optimizer=optim, num_counter_examples=num_counter_sample,
         min_action=large_sample.min(), max_action= large_sample.max(),
         fraction_dfo_samples=1., fraction_langevin_samples=0., return_full_chain=False)

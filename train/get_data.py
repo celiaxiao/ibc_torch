@@ -68,6 +68,6 @@ if __name__ == '__main__':
 
     train_data, test_data = create_train_and_eval_fns()
     print(train_data, test_data)
-    print(train_data.toString())
+
 
 

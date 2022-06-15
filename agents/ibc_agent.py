@@ -23,7 +23,7 @@ import functools
 from agents import mcmc
 from losses import emb_losses
 from losses import gradient_losses
-from agents.utils import tile_batch
+from agents.utils import dict_flatten, tile_batch
 import torch
 import torch.nn as nn
 
@@ -31,7 +31,6 @@ class ImplicitBCAgent():
   """implementing implicit behavioral cloning."""
 
   def __init__(self,
-               time_step_spec,
                action_spec:int,
                cloning_network,
                optimizer,
@@ -55,7 +54,6 @@ class ImplicitBCAgent():
                grad_norm_type='inf',
                softmax_temperature=1.0):
     super().__init__()
-    self.time_step_spec=time_step_spec
     self.action_spec = action_spec
     self.min_action = min_action
     self.max_action = max_action
@@ -128,11 +126,13 @@ class ImplicitBCAgent():
     # same across all observations.
     # single_obs = tf.nest.flatten(observations)[0]
     if isinstance(observations, dict):
-        single_obs = observations[observations.keys()[0]]
+        single_obs = observations[list(observations.keys())[0]]
+        observations = dict_flatten(observations)
     else:
         single_obs = observations
+    # print('single_obs', single_obs.shape)
     batch_size = single_obs.shape[0]
-
+    observations = observations.reshape([batch_size, -1])
     # Now tile and setup observations to be: [B * n+1 x obs_spec]
     # TODO(peteflorence): could potentially save memory by not calling
     # tile_batch both here and in _make_counter_example_actions...
@@ -143,7 +143,8 @@ class ImplicitBCAgent():
     else:
       maybe_tiled_obs = tile_batch(observations,
                                               self._num_counter_examples + 1)
-
+    assert maybe_tiled_obs.shape[0] == batch_size * (self._num_counter_examples + 1)
+    # print('maybe_tiled_obs', maybe_tiled_obs.shape)
     # [B x 1 x act_spec]
     expanded_actions = actions[:,None]
     # generate counter examples
@@ -151,6 +152,12 @@ class ImplicitBCAgent():
       counter_example_actions, combined_true_counter_actions, chain_data = (
           self._make_counter_example_actions(observations,
                                              expanded_actions, batch_size))
+    # print('combined_true_counter_actions',combined_true_counter_actions.shape)
+    # print('counter_example_actions',counter_example_actions.shape)
+    
+    assert combined_true_counter_actions.shape == \
+      torch.Size([batch_size * (self._num_counter_examples + 1), self.action_spec])
+    
     if self._late_fusion:
         # Do one cheap forward pass.
         obs_embeddings = self.cloning_network.encode(maybe_tiled_obs)
@@ -252,9 +259,15 @@ class ImplicitBCAgent():
     # TODO: obtain action max and min
     # high, low = 1, -1
     # Counter example actions [B , num_counter_examples , act_spec]
-    random_uniform_example_actions = \
+    if len(self.min_action) > 1:
+      random_uniform_example_actions = \
+        torch.distributions.uniform.Uniform(self.min_action,self.max_action).sample(\
+            [batch_size, self._num_counter_examples])
+    else:
+      random_uniform_example_actions = \
         torch.distributions.uniform.Uniform(self.min_action,self.max_action).sample(\
             [batch_size, self._num_counter_examples, self._action_spec])
+    random_uniform_example_actions = random_uniform_example_actions.reshape((batch_size * self._num_counter_examples, -1))
     # print("check random uniform sample shape", random_uniform_example_actions.shape)
     # If not optimizing, just return.
     if (self._fraction_dfo_samples == 0.0 and
