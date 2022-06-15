@@ -159,13 +159,14 @@ def load_tfrecord_dataset_sequence(path_to_shards,
         lambda window: window.batch(seq_len, drop_remainder=True))
 
   dataset = tf.data.Dataset.from_tensor_slices(path_to_shards).repeat()
+  print('dataset', dataset)
   num_parallel_calls = None if deterministic else len(path_to_shards)
   dataset = dataset.interleave(interleave_func,
                                deterministic=deterministic,
                                cycle_length=len(path_to_shards),
                                block_length=1,
                                num_parallel_calls=num_parallel_calls)
-
+  print('dataset interleave', dataset)
   # flat_map doesn't work with Dict[str, tf.Tensor], so for now decode after
   # the window sample (this causes unnecessary decode of protos).
   # TODO(tompson): It would be more efficient to decode before window.
@@ -219,6 +220,7 @@ def create_sequence_datasets(dataset_path,
                              max_data_shards=-1):
   """Make train and eval datasets."""
   path_to_shards = get_shards(dataset_path)
+  print('path_to_shards', path_to_shards)
   if max_data_shards != -1:
     path_to_shards = path_to_shards[:max_data_shards]
     logging.info('limited to %d shards', max_data_shards)
@@ -237,7 +239,7 @@ def create_sequence_datasets(dataset_path,
     sequence_dataset = sequence_dataset.repeat().shuffle(replay_capacity).batch(
         batch_size, drop_remainder=True)
     return sequence_dataset
-
+  print('train_shards', train_shards)
   train_dataset = _make_dataset(train_shards)
   if num_eval_shards > 0:
     eval_dataset = _make_dataset(eval_shards)

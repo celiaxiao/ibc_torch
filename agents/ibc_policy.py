@@ -113,12 +113,13 @@ class IbcPolicy():
 
     super().__init__()
 
-  def act(self, time_step, policy_state):
-    distribution = self._distribution(time_step=time_step, policy_state=policy_state)
-    sample = distribution(torch.zeros(self._action_spec).shape)
+  def act(self, time_step):
+    distribution = self._distribution(time_step=time_step)
+    sample = distribution.sample()
     return sample
 
-  def _distribution(self, time_step, policy_state):
+  # TODO:time_step.observation must in shape [B, obs_dim], if a single [obs_dim] pass in, will result in wrong batch shape
+  def _distribution(self, time_step):
     # Use first observation to figure out batch/time sizes as they should be the
     # same across all observations.
     observations = time_step['observations']
@@ -129,11 +130,14 @@ class IbcPolicy():
       observations = self._obs_norm_layer(observations)
 
     if isinstance(observations, dict):
-        single_obs = observations[observations.keys()[0]]
+        # print('single obs', observations, list(observations.keys())[0])
+        single_obs = observations[list(observations.keys())[0]]
+        observations = utils.dict_flatten(observations)
     else:
         single_obs = observations
     batch_size = single_obs.shape[0]
-
+    #TODO: may have error for shape [B, T, obs_dim]
+    observations = observations.reshape([batch_size, -1])
     if self._late_fusion:
       maybe_tiled_obs = observations
     else:
@@ -141,11 +145,17 @@ class IbcPolicy():
                                               self._num_action_samples)
     # Initialize.
     # TODO(peteflorence): support other initialization options.
-    action_samples = \
+    # print('init sample',batch_size, self._num_action_samples, self._action_spec)
+    if len(self.min_action) > 1:
+      action_samples = \
+        torch.distributions.uniform.Uniform(self.min_action,self.max_action).sample(\
+            [batch_size, self._num_action_samples])
+    else:
+      action_samples = \
         torch.distributions.uniform.Uniform(self.min_action,self.max_action).sample(\
             [batch_size, self._num_action_samples, self._action_spec])
     action_samples = action_samples.reshape((batch_size * self._num_action_samples, -1))
-
+    # print('init sample',action_samples.shape, len(self.min_action.shape))
     # MCMC.
     probs = 0
     # print("check random uniform sample shape", action_samples.shape, maybe_tiled_obs.shape)
@@ -155,7 +165,7 @@ class IbcPolicy():
           batch_size,
           observations=maybe_tiled_obs,
           action_samples=action_samples,
-          policy_state=policy_state,
+          policy_state=None,
           num_action_samples=self._num_action_samples,
           min_actions=self.min_action,
           max_actions=self.max_action,

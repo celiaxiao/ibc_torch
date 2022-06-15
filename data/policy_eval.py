@@ -30,6 +30,7 @@ from environments.block_pushing import block_pushing_multimodal
 from environments.collect.utils import get_oracle as get_oracle_module
 from environments.particle import particle  # pylint: disable=unused-import
 from environments.particle import particle_oracles
+from agents import particle_policy
 from tf_agents.drivers import py_driver
 from tf_agents.environments import suite_gym
 from tf_agents.environments import wrappers
@@ -88,7 +89,7 @@ def evaluate(num_episodes,
              flatten_env,
              saved_model_path=None,
              checkpoint_path=None,
-             static_policy=None,
+             static_policy=None, #TODO: hard code to ibc policy object
              dataset_path=None,
              history_length=None,
              video=False,
@@ -154,7 +155,8 @@ def evaluate(num_episodes,
         # TODO(peteflorence): support more particle oracle options.
         policy = particle_oracles.ParticleOracle(env)
       else:
-        raise ValueError('Unknown policy for given task: %s: ' % static_policy)
+        policy = particle_policy.ParticleOracle(env, policy=static_policy)
+        # raise ValueError('Unknown policy for given task: %s: ' % static_policy)
     elif task != 'PARTICLE':
       # Get an oracle.
       policy = get_oracle_module.get_oracle(env, flags.FLAGS.task)
@@ -171,7 +173,9 @@ def evaluate(num_episodes,
   observers = metrics[:]
 
   if viz_img and ('Particle' in env_name):
-    visualization_dir = '/tmp/particle_oracle'
+    # visualization_dir = '/tmp/particle_oracle'
+    # TODO: set a temporaray dir
+    visualization_dir = './particle_oracle'
     shutil.rmtree(visualization_dir, ignore_errors=True)
     env.set_img_save_dir(visualization_dir)
     observers += [env.save_image]
