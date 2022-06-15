@@ -180,6 +180,7 @@ def gradient_wrt_act(energy_network,
   denergies_dactions = -1 * torch.autograd.grad(outputs=energies, inputs=actions, 
         grad_outputs=torch.ones(energies.size()),
         create_graph=True, retain_graph=True)[0]
+  # print("denergies_dactions",denergies_dactions.shape, actions.shape, energies.shape)
   return denergies_dactions, energies
 
 
@@ -235,7 +236,7 @@ def langevin_step(energy_network,
   de_dact = (gradient_scale * l_lambda * de_dact +
              torch.normal(mean=0, std=1, size=actions.shape) * l_lambda * noise_scale)
   delta_actions = stepsize * de_dact
-
+  # print('delta_actions', delta_actions.shape, delta_action_clip.shape, )
   # Clip to box.
   delta_actions = torch.clamp(delta_actions, -delta_action_clip,
                                    delta_action_clip)
@@ -304,8 +305,8 @@ def langevin_actions_given_obs(
     min_actions,
     max_actions,
     num_action_samples,
-    num_iterations=25,
-    sampler_stepsize_init=5e-1, #TODO: set this larger for larger stepsize, used to be 0.1
+    num_iterations=100, # TODO: hardcode to match ibc config, used to be 25
+    sampler_stepsize_init=0.1, 
     sampler_stepsize_decay=0.8,  # if using exponential langevin rate.
     noise_scale=1.0,
     grad_clip=None,

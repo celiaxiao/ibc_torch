@@ -8,8 +8,8 @@ class MLPEBM(nn.Module):
     """MLP-EBM compatible with tfagents."""
     # TODO: figure out size
     def __init__(self,
-                 input_dim,
-                 out_dim,
+                 input_dim:int,
+                 out_dim:int,
                  width=512,
                  depth=2,
                  rate=0.1,
@@ -41,13 +41,13 @@ class MLPEBM(nn.Module):
         # TODO: must make sure we calculate correct input shape when we create the network
         # Combine dict of observations to concatenated tensor. [B x T x obs_spec] 
         if isinstance(obs, dict):
-            batch_size = obs[obs.keys()[0]].shape[0]
+            batch_size = obs[list(obs.keys())[0]].shape[0]
             obs = torch.concat([torch.flatten(obs[key]) for key in obs.keys()], axis=-1)
         else:
             batch_size = obs.shape[0]
         # Flatten obs across time: [B x T * obs_spec]
         obs = torch.reshape(obs, [batch_size, -1])
-        # print(obs.shape, act.shape)
+        # print("obs, act", obs.shape, act.shape)
         # Concat [obs, act].
         x = torch.concat([obs, act], -1)
         # print("concat shape", x.shape)

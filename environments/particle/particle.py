@@ -248,12 +248,12 @@ class ParticleEnv(gym.Env):
     if traj.is_last():
       assert self.img_save_dir is not None
       if self.n_dim == 2:
-        fig, _ = particle_viz.visualize_2d(self.obs_log, self.act_log)
+        fig, _ = particle_viz.visualize_2d(self.obs_log, self.act_log, show=False)
         filename = os.path.join(self.img_save_dir,
                                 str(self.reset_counter).zfill(6)+'_2d.png')
         fig.savefig(filename)
         plt.close(fig)
-      fig, _ = particle_viz.visualize_nd(self.obs_log, self.act_log)
+      fig, _ = particle_viz.visualize_nd(self.obs_log, self.act_log, show=False)
       filename = os.path.join(self.img_save_dir,
                               str(self.reset_counter).zfill(6)+'_nd.png')
       fig.savefig(filename)

@@ -9,8 +9,6 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import manifold, datasets
-import os
-
 import tqdm
 # os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 # torch.cuda.set_device(2)
@@ -66,7 +64,7 @@ def train(useGaussian:bool):
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=1e-5)
 
-    agent = ibc_agent.ImplicitBCAgent(time_step_spec=1, action_spec=1, cloning_network=network,
+    agent = ibc_agent.ImplicitBCAgent( action_spec=1, cloning_network=network,
         optimizer=optim, num_counter_examples=num_counter_sample,
         min_action=large_sample.min(), max_action= large_sample.max(),
         fraction_dfo_samples=0., fraction_langevin_samples=1., return_full_chain=False)
