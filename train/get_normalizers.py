@@ -134,7 +134,7 @@ if __name__ == '__main__':
     # train_data, _ = create_train_and_eval_fns()
     # print(train_data)
     # count = 0
-    for batch in train_dataloader(train_data):
-      print(batch)
+    # for batch in train_dataloader(train_data):
+    #   print(batch)
       
 

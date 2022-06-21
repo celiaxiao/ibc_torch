@@ -117,11 +117,12 @@ class IbcPolicy():
     distribution = self._distribution(time_step=time_step)
     sample = distribution.sample()
     return sample
+    
+  def eval(self, time_step):
+    action_samples, probs = self._probs(time_step)
+    return action_samples[probs.argmax()]
 
-  # TODO:time_step.observation must in shape [B, obs_dim], if a single [obs_dim] pass in, will result in wrong batch shape
-  def _distribution(self, time_step):
-    # Use first observation to figure out batch/time sizes as they should be the
-    # same across all observations.
+  def _probs(self, time_step):
     observations = time_step['observations']
     if isinstance(observations, dict) and 'rgb' in observations:
       observations['rgb'] = convert_image_dtype(observations['rgb'], dtype=torch.float32)
@@ -203,7 +204,13 @@ class IbcPolicy():
 
     if self._act_denorm_layer is not None:
       action_samples = self._act_denorm_layer(action_samples)
+    return action_samples, probs
 
+  # TODO:time_step.observation must in shape [B, obs_dim], if a single [obs_dim] pass in, will result in wrong batch shape
+  def _distribution(self, time_step):
+    # Use first observation to figure out batch/time sizes as they should be the
+    # same across all observations.
+    action_samples, probs = self._probs(time_step)
     # Make a distribution for sampling.
     distribution = MappedCategorical(
         action_spec=self._action_spec, probs=probs, mapped_values=action_samples)

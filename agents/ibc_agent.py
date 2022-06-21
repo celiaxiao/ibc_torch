@@ -267,7 +267,7 @@ class ImplicitBCAgent():
       random_uniform_example_actions = \
         torch.distributions.uniform.Uniform(self.min_action,self.max_action).sample(\
             [batch_size, self._num_counter_examples, self._action_spec])
-    random_uniform_example_actions = random_uniform_example_actions.reshape((batch_size * self._num_counter_examples, -1))
+    random_uniform_example_actions = random_uniform_example_actions.reshape((batch_size * self._num_counter_examples, self._action_spec))
     # print("check random uniform sample shape", random_uniform_example_actions.shape)
     # If not optimizing, just return.
     if (self._fraction_dfo_samples == 0.0 and
