@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tqdm
 from torch.utils.data import DataLoader, Dataset
-from data import trajectory_dataset, policy_eval
-
+from data import policy_eval
+from data.particle_dataset import Particle_dataset
 device = torch.device('cuda')
 
 def load_dataset(dataset_dir):
@@ -30,18 +30,17 @@ def train(exp_name, dataset_dir):
     num_policy_sample = 512
     lr = 1e-3
     act_shape = [2]
-    max_action = [0.5, 0.5]
-    min_action = [-0.5,-0.5]
+    max_action = [1, 1]
+    min_action = [0, 0]
     normalizer=None
     dense_layer_type='regular'
     rate = 0.
-    fraction_langevin_samples = 0.
-    fraction_dfo_samples = 1.
-    use_dfo=True
-    use_langevin=False
-    optimize_again=False
-    eval_iteration = 350
-    num_epoch = int(3e4)
+    fraction_langevin_samples = 1.
+    fraction_dfo_samples = 0.
+    use_dfo=False
+    use_langevin=True
+    optimize_again=True
+    num_epoch = int(1e4)
     save_config(locals(), path)   
 
     max_action = torch.tensor(max_action).float()
@@ -72,12 +71,12 @@ def train(exp_name, dataset_dir):
         for experience in iter(dataloader):
             loss_dict = agent.train(experience)
         
-        if epoch % 500 == 0:
+        if epoch % 20 == 0:
             print("loss at epoch",epoch, loss_dict['loss'].sum().item())
             # evaluate
             policy_eval.evaluate(1, 'PARTICLE', False, False, False, 
-                static_policy=policy, viz_img=True)
-        if epoch % 5000 == 0:
+                static_policy=policy, viz_img=True, output_path=path+str(epoch))
+        if epoch+1 % 500 == 0:
             torch.save(network.state_dict(), path+str(epoch)+'.pt')
 
 def train_mse(exp_name, dataset_dir):
@@ -89,10 +88,9 @@ def train_mse(exp_name, dataset_dir):
     act_shape = [2]
     num_epoch = int(1e4)
    
-    eval_iteration = 350
     save_config(locals(), path)   
     network = nn.Sequential(
-        nn.Linear(4, 1024),
+        nn.Linear(8, 1024),
         nn.ReLU(),
         nn.Linear(1024, 1024),
         nn.ReLU(),
@@ -122,29 +120,15 @@ def train_mse(exp_name, dataset_dir):
             output = loss(act_predict, act_truth)
             output.backward()
             optim.step()
-        if epoch % 1000 == 0:
+        if epoch % 25 == 0:
             print("loss at epoch",epoch, output.item())
             # plot single traj
-            obs = torch.tensor([[10., 10., 0., 0.]])
-            traj = [obs[0, 2:].cpu().numpy()]
-            for i in range(eval_iteration):
-                act = network(obs)
-                obs[:, 2:] += act
-                traj.append(obs[0, 2:].detach().cpu().numpy())
-                # print(traj)
-            traj = np.array(traj)
-            # print(traj)
-            plt.plot(traj[:,0], traj[:,1])
-            plt.scatter([10],[10], color='red')
-            plt.savefig(path+'epoch'+str(epoch)+'.png')
-            plt.close()
+            policy_eval.evaluate(1, 'PARTICLE', False, False, False, 
+                static_policy=network, viz_img=True, output_path=path+str(epoch), mse=True)
         
-        if epoch+1 % 10000 == 0:
+        if epoch+1 % 100 == 0:
             torch.save(network.state_dict(), path+str(epoch)+'.pt')
     
-
-def demo(dataset_dir):
-    dataset = load_dataset(dataset_dir)
 
 def eval_mse(exp_name):
     path = './mse_exp/'+exp_name+'/'
@@ -181,8 +165,8 @@ def eval_mse(exp_name):
 
 if __name__ == '__main__':
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    exp_name='particle'
-    dataset_dir = 'data/trajectory/5line_noise.pt'
+    exp_name='particle_dfo_25iter'
+    dataset_dir = 'data/particle/particle_large.pt'
     train(exp_name, dataset_dir)
     # train_mse(exp_name, dataset_dir)
     # eval_mse(exp_name)

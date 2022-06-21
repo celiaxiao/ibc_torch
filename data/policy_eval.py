@@ -18,6 +18,8 @@ import functools
 import os
 import shutil
 
+import numpy as np
+
 from absl import app
 from absl import flags
 from absl import logging
@@ -31,6 +33,7 @@ from environments.collect.utils import get_oracle as get_oracle_module
 from environments.particle import particle  # pylint: disable=unused-import
 from environments.particle import particle_oracles
 from agents import particle_policy
+from train import make_video as video_module
 from tf_agents.drivers import py_driver
 from tf_agents.environments import suite_gym
 from tf_agents.environments import wrappers
@@ -94,7 +97,8 @@ def evaluate(num_episodes,
              history_length=None,
              video=False,
              viz_img=False,
-             output_path=None):
+             output_path=None,
+             mse=False):
   """Evaluates the given policy for n episodes."""
   if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
     # Options are supported through flags to build_env_name, and different
@@ -123,19 +127,6 @@ def evaluate(num_episodes,
     env = wrappers.HistoryWrapper(
         env, history_length=history_length, tile_first_step_obs=True)
 
-  if video:
-    video_path = output_path
-
-    if saved_model_path:
-      policy_name = os.path.basename(os.path.normpath(saved_model_path))
-      checkpoint_ref = checkpoint_path.split('_')[-1]
-      video_path = os.path.join(video_path,
-                                policy_name + '_' + checkpoint_ref + 'vid.mp4')
-
-    if static_policy:
-      video_path = os.path.join(video_path, static_policy, 'vid.mp4')
-
-
   if saved_model_path and static_policy:
     raise ValueError(
         'Only pass in either a `saved_model_path` or a `static_policy`.')
@@ -155,11 +146,14 @@ def evaluate(num_episodes,
         # TODO(peteflorence): support more particle oracle options.
         policy = particle_oracles.ParticleOracle(env)
       else:
-        policy = particle_policy.ParticleOracle(env, policy=static_policy)
+        policy = particle_policy.ParticleOracle(env, policy=static_policy, mse=mse)
         # raise ValueError('Unknown policy for given task: %s: ' % static_policy)
     elif task != 'PARTICLE':
       # Get an oracle.
-      policy = get_oracle_module.get_oracle(env, flags.FLAGS.task)
+      if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
+        policy = get_oracle_module.get_oracle(env, task)
+      else:
+        policy = get_oracle_module.get_oracle(env, flags.FLAGS.task)
     else:
       raise ValueError('Unknown policy: %s: ' % static_policy)
 
@@ -175,10 +169,19 @@ def evaluate(num_episodes,
   if viz_img and ('Particle' in env_name):
     # visualization_dir = '/tmp/particle_oracle'
     # TODO: set a temporaray dir
-    visualization_dir = './particle_oracle'
+    visualization_dir = output_path
+    # print("visualiizng in", visualization_dir)
     shutil.rmtree(visualization_dir, ignore_errors=True)
     env.set_img_save_dir(visualization_dir)
     observers += [env.save_image]
+  
+  if video:
+    video_path = output_path
+    video_module.make_video(
+    policy,
+    env,
+    video_path,
+    step=np.array(0)) # agent.train_step)
 
   if dataset_path:
     # TODO(oars, peteflorence): Consider a custom observer to filter only
@@ -196,6 +199,7 @@ def evaluate(num_episodes,
   driver.run(time_step, initial_policy_state)
   log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
   logging.info('\n\t\t '.join(log))
+  print(log)
 
   env.close()
 
