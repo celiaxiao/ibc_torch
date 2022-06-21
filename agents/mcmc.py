@@ -64,7 +64,7 @@ def iterative_dfo(network,
                   min_actions,
                   max_actions,
                   temperature=1.0,
-                  num_iterations=3,
+                  num_iterations=25, #TODO: used to be 3
                   iteration_std=0.33,
                   late_fusion=False,):
   """Update samples through ~Metropolis Hastings / CEM.

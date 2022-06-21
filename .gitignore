@@ -9,3 +9,4 @@ concept.egg-info/*
 */mcmc_tf.py
 */particle_oracle/*
 */trajectory/*
+*/particle/*

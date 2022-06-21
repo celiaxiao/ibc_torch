@@ -112,7 +112,7 @@ def filter_episodes_rnn(traj):
 
 
 def load_tfrecord_dataset_sequence(path_to_shards,
-                                   buffer_size_per_shard = 100,
+                                   buffer_size_per_shard = 50,
                                    seq_len = 1,
                                    deterministic = False,
                                    compress_image = True,
@@ -236,8 +236,11 @@ def create_sequence_datasets(dataset_path,
   def _make_dataset(path_to_shards):
     sequence_dataset = load_tfrecord_dataset_sequence(
         path_to_shards, seq_len=sequence_length, for_rnn=for_rnn)
+        # TODO: no repeat for now
     sequence_dataset = sequence_dataset.repeat().shuffle(replay_capacity).batch(
         batch_size, drop_remainder=True)
+    # sequence_dataset = sequence_dataset.shuffle(replay_capacity).batch(
+    #     batch_size, drop_remainder=True)
     return sequence_dataset
   print('train_shards', train_shards)
   train_dataset = _make_dataset(train_shards)

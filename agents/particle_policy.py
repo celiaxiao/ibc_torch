@@ -34,7 +34,8 @@ class ParticleOracle(py_policy.PyPolicy):
                policy=None,
                wait_at_first_goal = 1,
                multimodal = False,
-               goal_threshold = 0.01):
+               goal_threshold = 0.01,
+               mse=False):
     """Create oracle.
 
     Args:
@@ -56,9 +57,9 @@ class ParticleOracle(py_policy.PyPolicy):
     self.goal_threshold = goal_threshold
     self.multimodal = multimodal
     self.policy = policy
+    self.mse = mse
 
     self.reset()
-    print('ParticleOracle')
 
   def reset(self):
     self.steps_at_first_goal = 0
@@ -76,6 +77,10 @@ class ParticleOracle(py_policy.PyPolicy):
     obs = {}
     for key in time_step.observation:
       obs[key] = torch.tensor(time_step.observation[key])[None, ]
-    act = self.policy.act({'observations':obs}).squeeze().cpu().numpy()
+    if self.mse:
+      obs = torch.concat([torch.flatten(obs[key]) for key in obs.keys()], axis=-1)
+      act = self.policy(obs).detach().squeeze().cpu().numpy()
+    else:
+      act = self.policy.act({'observations':obs}).squeeze().cpu().numpy()
 
     return policy_step.PolicyStep(action=act)

@@ -1,6 +1,7 @@
 import os
 from agents import ibc_agent
-from agents.utils import tile_batch
+from agents.ibc_policy import IbcPolicy
+from agents.utils import save_config, tile_batch
 from network import mlp_ebm
 import torch
 import torch.distributions as D
@@ -91,7 +92,72 @@ def train(useGaussian:bool):
             else:
                 pass
 
+def train_discontinuity(exp_name):
+    path = './agent_exp/'+exp_name+'/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    batch_size = 256
+    num_counter_sample = 16
+    num_policy_sample = 512
+    lr = 1e-3
+    act_shape = [1]
+    max_action = [1]
+    min_action = [0]
+    normalizer=None
+    dense_layer_type='regular'
+    rate = 0.
+    fraction_langevin_samples = 0.
+    fraction_dfo_samples = 1.
+    use_dfo=False
+    use_langevin=True
+    optimize_again=True
+    num_epoch = int(1e4)
+    save_config(locals(), path)   
 
+    max_action = torch.tensor(max_action).float()
+    min_action = torch.tensor(min_action).float()
+    network = mlp_ebm.MLPEBM((act_shape[0]+1), 1, 
+        normalizer=normalizer, rate=rate,
+        dense_layer_type=dense_layer_type).to(device)
+    print (network,[param.shape for param in list(network.parameters())] )
+    optim = torch.optim.Adam(network.parameters(), lr=lr)
+    agent = ibc_agent.ImplicitBCAgent(action_spec=int(act_shape[0]), cloning_network=network,
+        optimizer=optim, num_counter_examples=num_counter_sample,
+        min_action=min_action, max_action=max_action,
+        fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, return_full_chain=False)
+    policy = IbcPolicy( actor_network = network,
+        action_spec= int(act_shape[0]), #hardcode
+        min_action = min_action, 
+        max_action = max_action,
+        num_action_samples=num_policy_sample,
+        use_dfo=use_dfo,
+        use_langevin=use_langevin,
+        optimize_again=optimize_again
+    )
+
+    obs = torch.rand([500, 1])*2
+    act = (obs > 1)
+    plt.scatter(obs.squeeze().cpu(), act.squeeze().cpu())
+    plt.savefig('./agent_exp/'+exp_name+'/demo.png')
+    plt.close()
+
+    for epoch in tqdm.trange(int(1e4)):
+        experience = (obs, act)
+        loss_dict = agent.train(experience)
+        if epoch % 1000 == 0:
+            print("loss at epoch",epoch, loss_dict['loss'].sum().item())
+            x = torch.rand([500, 1])*2
+            y=[]
+            for single_x in x:
+                single_y = policy.act({'observations':single_x}).detach().squeeze().cpu().numpy()
+                y.append(single_y)
+            y = np.array(y)
+            # print(x.shape, y.shape)
+            plt.scatter(x.squeeze().cpu().numpy(), y)
+            plt.savefig(path+'epoch'+str(epoch)+'.png')
+            plt.close()
+        
 if __name__ == '__main__':
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    train(useGaussian=True)
+    # train(useGaussian=True)
+    train_discontinuity(exp_name='discontinuity_langevin_wo_argmax')
