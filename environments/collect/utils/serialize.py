@@ -18,7 +18,7 @@ import collections
 import os
 from typing import List
 
-from ibc.environments.utils.utils_pybullet import write_pybullet_state
+from environments.utils.utils_pybullet import write_pybullet_state
 import tensorflow as tf
 from tf_agents.trajectories import policy_step
 from tf_agents.trajectories import trajectory

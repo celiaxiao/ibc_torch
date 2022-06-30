@@ -16,7 +16,7 @@
 """Loads an environment for data collection."""
 from absl import logging
 import gin
-from ibc.environments.block_pushing import block_pushing  # pylint: disable=unused-import
+from environments.block_pushing import block_pushing  # pylint: disable=unused-import
 from tf_agents.environments import suite_gym
 
 

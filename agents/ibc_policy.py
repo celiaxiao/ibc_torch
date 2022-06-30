@@ -1,3 +1,4 @@
+from time import time
 from agents import utils, mcmc
 import torch
 from torchvision.transforms.functional import convert_image_dtype
