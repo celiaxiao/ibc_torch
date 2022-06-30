@@ -26,7 +26,7 @@ from tf_agents.trajectories import policy_step
 
 
 
-class ParticleOracle(py_policy.PyPolicy):
+class Oracle(py_policy.PyPolicy):
   """Oracle moving between two different goals."""
 
   def __init__(self,
@@ -45,7 +45,7 @@ class ParticleOracle(py_policy.PyPolicy):
       multimodal: If true, go to one or other goal.
       goal_threshold: How close is considered good enough.
     """
-    super(ParticleOracle, self).__init__(env.time_step_spec(),
+    super(Oracle, self).__init__(env.time_step_spec(),
                                          env.action_spec())
     self._env = env
     self._np_random_state = np.random.RandomState(0)

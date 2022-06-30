@@ -28,7 +28,7 @@ def make_video(policy, env, root_dir, step):
   """Creates a video of a single rollout from the current policy."""
 #   policy = strategy_policy.StrategyPyTFEagerPolicy(
 #       agent.policy, strategy=strategy)
-  video_path = os.path.join(root_dir, 'videos', 'ttl=7d', 'vid_%d.mp4' % step)
+  video_path = os.path.join(root_dir, 'vid_%d.mp4' % step)
   if not hasattr(env, 'control_frequency'):
     # Use this control freq for d4rl envs, which don't have a control_frequency
     # attr.

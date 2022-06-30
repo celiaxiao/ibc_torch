@@ -112,6 +112,7 @@ class StatsTest(tf.test.TestCase):
 
     np.testing.assert_almost_equal(act_min, min_actions)
     np.testing.assert_almost_equal(act_max, max_actions)
+    print("push min max", min_actions, max_actions)
 
   def test_nested_obs_stats(self):
     dataset = self.generate_dataset(images=False)

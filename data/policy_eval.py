@@ -32,7 +32,7 @@ from environments.block_pushing import block_pushing_multimodal
 from environments.collect.utils import get_oracle as get_oracle_module
 from environments.particle import particle  # pylint: disable=unused-import
 from environments.particle import particle_oracles
-from agents import particle_policy
+from agents import eval_policy
 from train import make_video as video_module
 from tf_agents.drivers import py_driver
 from tf_agents.environments import suite_gym
@@ -146,14 +146,15 @@ def evaluate(num_episodes,
         # TODO(peteflorence): support more particle oracle options.
         policy = particle_oracles.ParticleOracle(env)
       else:
-        policy = particle_policy.ParticleOracle(env, policy=static_policy, mse=mse)
+        policy = eval_policy.Oracle(env, policy=static_policy, mse=mse)
         # raise ValueError('Unknown policy for given task: %s: ' % static_policy)
     elif task != 'PARTICLE':
-      # Get an oracle.
-      if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
-        policy = get_oracle_module.get_oracle(env, task)
-      else:
-        policy = get_oracle_module.get_oracle(env, flags.FLAGS.task)
+      policy = eval_policy.Oracle(env, policy=static_policy, mse=mse)
+       # Get an oracle.
+      # if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
+      #   policy = get_oracle_module.get_oracle(env, task)
+      # else:
+      #   policy = get_oracle_module.get_oracle(env, flags.FLAGS.task)
     else:
       raise ValueError('Unknown policy: %s: ' % static_policy)
 
@@ -200,6 +201,9 @@ def evaluate(num_episodes,
   log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
   logging.info('\n\t\t '.join(log))
   print(log)
+  with open(output_path+'metrics.txt', 'w') as f:
+    f.write(' '.join(map(str, log)))
+
 
   env.close()
 
