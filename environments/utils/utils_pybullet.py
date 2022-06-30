@@ -60,8 +60,6 @@ def matrix_to_rotation(matrix):
 
 def load_urdf(pybullet_client, file_path, *args, **kwargs):
   """Loads the given URDF filepath."""
-  # print("loading", file_path)
-  # print(os.listdir())
   # Handles most general file open case.
   try:
     if os.path.exists(file_path):

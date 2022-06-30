@@ -10,3 +10,8 @@ concept.egg-info/*
 */particle_oracle/*
 */trajectory/*
 */particle/*
+data_0*
+data/*
+!data/*.py
+test/*
+!test/*.py
