@@ -20,7 +20,6 @@ import copy
 import os
 from typing import Union
 
-import gin
 import gym
 from gym import spaces
 from gym.envs import registration
@@ -30,7 +29,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-@gin.configurable
 class ParticleEnv(gym.Env):
   """Simple particle environment with gym wrapper.
 
@@ -75,7 +73,7 @@ class ParticleEnv(gym.Env):
     success_metric = metrics[-1]
     return metrics, success_metric
 
-  @gin.configurable
+   
   def __init__(
       self,
       n_steps = 50,

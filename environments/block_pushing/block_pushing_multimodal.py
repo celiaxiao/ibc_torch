@@ -34,8 +34,8 @@ import pybullet
 import pybullet_utils.bullet_client as bullet_client
 
 # pytype: skip-file
-BLOCK2_URDF_PATH = 'third_party/py/ibc/environments/assets/block2.urdf'
-ZONE2_URDF_PATH = 'third_party/py/ibc/environments/assets/zone2.urdf'
+BLOCK2_URDF_PATH = 'third_party/py/ibc_torch/environments/assets/block2.urdf'
+ZONE2_URDF_PATH = 'third_party/py/ibc_torch/environments/assets/zone2.urdf'
 
 # When resetting multiple targets, they should all be this far apart.
 MIN_BLOCK_DIST = 0.1

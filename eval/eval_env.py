@@ -22,10 +22,9 @@ from environments.block_pushing import block_pushing
 from environments.block_pushing import block_pushing_discontinuous
 from environments.block_pushing import block_pushing_multimodal
 from train import constants
-try:
-  from eval import d4rl_utils  # pylint: disable=g-import-not-at-top
-except:  # pylint: disable=bare-except
-  print('WARNING: Could not import d4rl.')
+
+from eval import d4rl_utils  # pylint: disable=g-import-not-at-top
+
 from tf_agents.environments import parallel_py_environment  # pylint: disable=g-import-not-at-top
 from tf_agents.environments import suite_gym
 from tf_agents.environments import wrappers

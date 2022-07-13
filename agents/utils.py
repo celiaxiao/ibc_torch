@@ -63,3 +63,35 @@ def save_config(config, dir=''):
         print(output)
         with open(osp.join(dir, "config.json"), 'w') as out:
             out.write(output)
+
+def get_sampling_spec(action_tensor_spec,
+                      min_actions,
+                      max_actions,
+                      uniform_boundary_buffer,
+                      ):
+    """Defines action sampling based on min/max action +- buffer.
+
+    Args:
+        action_tensor_spec: Action spec. dict {'maximum': [], 'minimum': []}
+        min_actions: Per-dimension minimum action values seen in subset
+        of training data.
+        max_actions: Per-dimension minimum action values seen in subset
+        of training data.
+        uniform_boundary_buffer: Float, percentage of extra "room" to add to
+        minimum/maximum boundary when sampling uniform actions.
+        act_norm_layer: Normalizer, needed so can sample over normalized actions.
+    Returns:
+        sampling_spec: Spec used for sampling random uniform negative actions.
+    """
+
+    # Optionally add a small buffer of extra acting range.
+    action_range = max_actions - min_actions
+    min_actions -= action_range * uniform_boundary_buffer
+    max_actions += action_range * uniform_boundary_buffer
+
+    # Clip this range to the envs' min/max.
+    # There's no point in sampling outside of the envs' min/max.
+    min_actions = torch.max(action_tensor_spec['minimum'], min_actions)
+    max_actions = torch.min(action_tensor_spec['maximum'], max_actions)
+
+    return min_actions, max_actions

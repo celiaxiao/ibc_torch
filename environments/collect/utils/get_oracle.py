@@ -16,7 +16,8 @@
 """Gets oracles."""
 import environments.block_pushing.oracles.oriented_push_oracle as oriented_push_oracle_module
 import environments.block_pushing.oracles.reach_oracle as reach_oracle_module
-
+import environments.block_pushing.oracles.discontinuous_push_oracle as discontinuous_push_oracle
+import environments.block_pushing.oracles.multimodal_push_oracle as multimodal_push_oracle
 
 def get_oracle(env, task):
   """Gets an oracle for a given task."""
@@ -24,6 +25,10 @@ def get_oracle(env, task):
     oracle_policy = reach_oracle_module.ReachOracle(env)
   elif task == 'PUSH':
     oracle_policy = oriented_push_oracle_module.OrientedPushOracle(env)
+  elif task == 'PUSH_DISCONTINUOUS':
+    oracle_policy = discontinuous_push_oracle.DiscontinuousOrientedPushOracle(env)
+  elif task == 'PUSH_MULTIMODAL':
+    oracle_policy = multimodal_push_oracle.MultimodalOrientedPushOracle(env)
   else:
     raise ValueError('oracle not registered.')
   return oracle_policy

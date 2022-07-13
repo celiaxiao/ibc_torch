@@ -11,6 +11,9 @@ install_requires = [
     'tensorflow',
     'matplotlib',
     'gin',
+    'tf_agents',
+    'pybullet',
+    'tensorflow_datasets'
 
 ]
 

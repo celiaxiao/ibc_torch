@@ -21,7 +21,6 @@ import agents.utils as utils
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import gin
 import numpy as np
 
 # This global makes it easier to switch on/off tf.range in this file.
@@ -64,7 +63,7 @@ def iterative_dfo(network,
                   min_actions,
                   max_actions,
                   temperature=1.0,
-                  num_iterations=25, #TODO: used to be 3
+                  num_iterations=3, #TODO: used to be 3
                   iteration_std=0.33,
                   late_fusion=False,):
   """Update samples through ~Metropolis Hastings / CEM.
@@ -115,7 +114,6 @@ def iterative_dfo(network,
     # Note: bincount takes log probabilities, and doesn't expect normalized,
     # so can skip softmax.
     
-    assert not torch.isnan(net_logits).all()
     log_probs = net_logits / temperature
     # Shape is still (B, n), for example (2, 2048) for B=2, n=2048
     actions_selected = categorical_bincount(num_action_samples, log_probs,
@@ -297,7 +295,6 @@ def update_chain_data(num_iterations,
   return full_chain_actions, full_chain_energies, full_chain_grad_norms
 
 
-@gin.configurable
 def langevin_actions_given_obs(
     energy_network,
     observations,  # B*n x obs_spec or B x obs_spec if late_fusion
@@ -306,11 +303,11 @@ def langevin_actions_given_obs(
     max_actions,
     num_action_samples,
     num_iterations=100, # TODO: hardcode to match ibc config, used to be 25
-    sampler_stepsize_init=0.1, 
+    sampler_stepsize_init=0.5, # TODO: used to 0.1
     sampler_stepsize_decay=0.8,  # if using exponential langevin rate.
-    noise_scale=1.0,
+    noise_scale=0.5, # TODO: used to be 1.0
     grad_clip=None,
-    delta_action_clip=0.1,
+    delta_action_clip=0.5, # TODO: used to be 0.1
     stop_chain_grad=True,
     apply_exp=False,
     use_polynomial_rate=True,  # default is exponential
