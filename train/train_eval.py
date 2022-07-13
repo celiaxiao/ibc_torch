@@ -1,0 +1,253 @@
+from audioop import maxpp
+import os
+import sys
+from absl import flags
+from agents import ibc_agent, eval_policy
+from agents.ibc_policy import IbcPolicy
+from agents.utils import save_config, tile_batch, get_sampling_spec
+from eval import eval_env as eval_env_module
+from train import make_video as video_module
+from network import mlp_ebm
+import torch
+import torch.distributions as D
+import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import numpy as np
+import tqdm
+from torch.utils.data import DataLoader, Dataset
+from data import policy_eval
+from data.transform_dataset import Ibc_dataset
+from data.dataset_d4rl import d4rl_dataset
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+device = torch.device('cuda')
+
+flags.DEFINE_string(
+    'train_task',
+    None,
+    'Which task to run')
+# flags.DEFINE_string(
+#     'dataset_path', './data',
+#     'If set a dataset of the oracle output will be saved '
+#     'to the given path.')
+flags.DEFINE_integer('obs_dim', 10,
+                     'The (total) dimension of the observation')
+flags.DEFINE_integer('act_dim', 2,
+                     'The dimension of the action.')
+flags.DEFINE_integer('eval_episodes', 5,
+                     'The dimension of the action.')
+flags.DEFINE_string(
+    'exp_name', 'push',
+    'the experiment name')
+FLAGS = flags.FLAGS
+FLAGS(sys.argv) 
+
+def load_dataset(dataset_dir):
+    # os.chdir('..')
+    dataset = torch.load(dataset_dir)
+    # os.chdir('./tests')
+    return dataset
+
+def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_dim, min_action, max_action):
+    path = 'tests/policy_exp/'+exp_name+'/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    batch_size = 512
+    num_counter_sample = 8
+    num_policy_sample = 512
+    lr = 5e-4
+    act_shape = [act_dim]
+    uniform_boundary_buffer = 0.05
+    normalizer=None
+    dense_layer_type='spectral_norm'
+    rate = 0.
+    width = 512
+    depth = 8
+    fraction_langevin_samples = 1.
+    fraction_dfo_samples = 0.
+    add_grad_penalty = False
+    use_dfo = False
+    use_langevin = True
+    optimize_again = True
+    inference_langevin_noise_scale = 0.5
+    again_stepsize_init = 1e-5
+    num_epoch = int(1e4)
+    eval_episodes = FLAGS.eval_episodes
+    mcmc_iteration = 3
+    run_full_chain_under_gradient = True
+    save_config(locals(), path)   
+
+    max_action = torch.tensor(max_action).float()
+    min_action = torch.tensor(min_action).float()
+    # action sampling based on min/max action +- buffer.
+    min_action, max_action = get_sampling_spec({'minimum':-1*torch.ones(act_dim), 'maximum':torch.ones(act_dim)}, 
+        min_action, max_action, uniform_boundary_buffer)
+    print('updating boundary', min_action, max_action)
+    network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
+        normalizer=normalizer, rate=rate,
+        dense_layer_type=dense_layer_type).to(device)
+    print (network,[param.shape for param in list(network.parameters())] )
+    optim = torch.optim.Adam(network.parameters(), lr=lr)
+    agent = ibc_agent.ImplicitBCAgent(action_spec=int(act_shape[0]), cloning_network=network,
+        optimizer=optim, num_counter_examples=num_counter_sample,
+        min_action=min_action, max_action=max_action, add_grad_penalty=add_grad_penalty,
+        fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, 
+        return_full_chain=False, run_full_chain_under_gradient=run_full_chain_under_gradient)
+    ibc_policy = IbcPolicy( actor_network = network,
+        action_spec= int(act_shape[0]), #hardcode
+        min_action = min_action, 
+        max_action = max_action,
+        num_action_samples=num_policy_sample,
+        use_dfo=use_dfo,
+        use_langevin=use_langevin,
+        optimize_again=optimize_again,
+        inference_langevin_noise_scale=inference_langevin_noise_scale,
+        again_stepsize_init=again_stepsize_init
+    )
+    env_name = eval_env_module.get_env_name(task, False,
+                                            image_obs)
+    print(('Got env name:', env_name))
+    eval_env = eval_env_module.get_eval_env(
+        env_name, 1, goal_tolerance, 1)
+    # policy_eval.evaluate(5, task, False, False, False, 
+    #             static_policy=ibc_policy, video=False,
+    #             writer=writer, epoch=100)
+    dataset = load_dataset(dataset_dir)
+    dataloader = DataLoader(dataset, batch_size=batch_size, 
+        # generator=torch.Generator(device='cuda'), 
+        shuffle=False)
+    for epoch in tqdm.trange(num_epoch):
+        for experience in iter(dataloader):
+            loss_dict = agent.train(experience)
+        
+        writer.add_scalar('loss/epoch',loss_dict['loss'].sum().item(), epoch)
+        if task not in ['door-human-v0', 'hammer-human-v0', 'relocate-human-v0']:
+            if epoch % 500 == 0 and epoch > 0:
+                print("loss at epoch",epoch, loss_dict['loss'].sum().item())
+                # evaluate
+                policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
+                video_module.make_video(
+                    policy,
+                    eval_env,
+                    path,
+                    step=np.array(epoch)) # agent.train_step)
+            if epoch % 500 == 0 and epoch > 0:
+                policy_eval.evaluate(eval_episodes, task, False, False, False, 
+                    static_policy=ibc_policy, video=False, output_path=path+str(epoch),
+                    writer=writer, epoch=epoch)
+        if epoch % 500 == 0 and epoch != 0:
+            torch.save(network.state_dict(), path+str(epoch)+'.pt')
+    writer.close()
+
+def train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim):
+    path = 'tests/mse_exp/'+exp_name+'/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    batch_size = 8192
+    lr = 1e-4
+    act_shape = [2]
+    num_epoch = int(5e3)
+    eval_episodes = 5
+   
+    save_config(locals(), path)   
+    network = nn.Sequential(
+        nn.Linear(obs_dim, 1024),
+        nn.ReLU(),
+        nn.Linear(1024, 1024),
+        nn.ReLU(),
+        nn.Linear(1024, 1024),
+        nn.ReLU(),
+        nn.Linear(1024, act_shape[0])
+    )
+    # network = mlp_ebm.MLPEBM(input_dim=4, out_dim=act_shape[0], 
+    #     depth=0, width=64)
+    print (network,[param.shape for param in list(network.parameters())] )
+    optim = torch.optim.Adam(network.parameters(), lr=lr)
+    env_name = eval_env_module.get_env_name(task, False,
+                                            image_obs)
+    print(('Got env name:', env_name))
+    eval_env = eval_env_module.get_eval_env(
+        env_name, 1, goal_tolerance, 1)
+    dataset = load_dataset(dataset_dir)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    for epoch in tqdm.trange(num_epoch):
+        for experience in iter(dataloader):
+            obs, act_truth = experience
+            if isinstance(obs, dict):
+                exp_batch_size = obs[list(obs.keys())[0]].shape[0]
+                obs = torch.concat([torch.flatten(obs[key]) for key in obs.keys()], axis=-1)
+            else:
+                exp_batch_size = obs.shape[0]
+            # Flatten obs across time: [B x T * obs_spec]
+            obs = torch.reshape(obs, [exp_batch_size, -1])
+            # print('----------------------', obs.mean(), obs.std(), obs[:3], act_truth.mean(), act_truth.std(), act_truth[:3])
+            act_predict = network(obs)
+            # print('act predict', act_predict, 'truth', act_truth)
+            optim.zero_grad()
+            loss = nn.MSELoss()
+            output = loss(act_predict, act_truth)
+            output.backward()
+            optim.step()
+        if epoch % 50 == 0:
+            print("loss at epoch",epoch, output.item())
+            # plot single traj
+            policy = eval_policy.Oracle(eval_env, policy=network, mse=True)
+            video_module.make_video(
+                policy,
+                eval_env,
+                path,
+                step=np.array(epoch)) # agent.train_step)
+        if epoch % 100 == 0:
+            policy_eval.evaluate(eval_episodes, task, False, False, False, 
+                static_policy=network, video=False, output_path=path+str(epoch), mse=True)
+        if epoch % 500 == 0 and epoch != 0:
+            torch.save(network.state_dict(), path+str(epoch)+'.pt')
+    
+
+
+if __name__ == '__main__':
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    # exp_name='multimodal'
+    # dataset_dir = 'data/block_push_states_location/multimodal.pt'
+    task = FLAGS.train_task
+    if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED', 'PUSH_DISCONTINUOUS', 'PUSH_MULTIMODAL']:
+        max_action = [0.03, 0.03]
+        min_action = [-0.03, -0.03]
+        dataset_dir = 'data/block_push_states_location/push_250.pt'
+    elif task == 'PARTICLE':
+        max_action = [1, 1]
+        min_action = [0, 0]
+    elif task == 'door-human-v0':
+        obs_dim = 39
+        act_dim = 28
+        dataset_dir = 'data/d4rl/door-human.pt'
+        with open('./data/d4rl/door-human_action_stat.pt', 'rb') as f:
+            action_stat = np.load(f, allow_pickle=True).item()
+            max_action = action_stat['max']
+            min_action = action_stat['min']
+    elif task == 'hammer-human-v0':
+        obs_dim = 46
+        act_dim = 26
+        dataset_dir = 'data/d4rl/hammer-human.pt'
+        with open('./data/d4rl/hammer-human_action_stat.pt', 'rb') as f:
+            action_stat = np.load(f, allow_pickle=True).item()
+            max_action = action_stat['max']
+            min_action = action_stat['min']
+    elif task == 'relocate-human-v0':
+        obs_dim = 39
+        act_dim = 30
+        dataset_dir = 'data/d4rl/relocate-human.pt'
+        with open('./data/d4rl/relocate-human_action_stat.pt', 'rb') as f:
+            action_stat = np.load(f, allow_pickle=True).item()
+            max_action = action_stat['max']
+            min_action = action_stat['min']
+    else:
+        raise ValueError("I don't recognize this task to train.")
+    image_obs = False
+    goal_tolerance = 0.02
+    exp_name=FLAGS.exp_name
+    train(exp_name=exp_name, dataset_dir=dataset_dir, image_obs=image_obs,
+          task=task, goal_tolerance=goal_tolerance, obs_dim=obs_dim, act_dim=act_dim, 
+          min_action=min_action, max_action=max_action)
+    # train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim)

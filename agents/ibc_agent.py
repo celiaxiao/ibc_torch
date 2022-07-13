@@ -151,6 +151,10 @@ class ImplicitBCAgent():
     if not self._run_full_chain_under_gradient:
       counter_example_actions, combined_true_counter_actions, chain_data = (
           self._make_counter_example_actions(observations,
+                                             expanded_actions.detach(), batch_size))
+    else:
+      counter_example_actions, combined_true_counter_actions, chain_data = (
+          self._make_counter_example_actions(observations,
                                              expanded_actions, batch_size))
     # print('combined_true_counter_actions',combined_true_counter_actions.shape)
     # print('counter_example_actions',counter_example_actions.shape)
@@ -256,8 +260,6 @@ class ImplicitBCAgent():
       batch_size):
     """Given observations and true actions, create counter example actions."""
     # Note that T (time dimension) would be included in obs_spec.
-    # TODO: obtain action max and min
-    # high, low = 1, -1
     # Counter example actions [B , num_counter_examples , act_spec]
     if len(self.min_action) > 1:
       random_uniform_example_actions = \
@@ -372,8 +374,8 @@ class ImplicitBCAgent():
       assert used_index == self._num_counter_examples
 
       counter_example_actions = torch.concat(list_of_counter_examples, axis=1)
-      counter_example_actions = torch.reshape(
-          counter_example_actions, (batch_size, self._num_counter_examples, -1))
+    counter_example_actions = torch.reshape(
+        counter_example_actions, (batch_size, self._num_counter_examples, -1))
 
     def concat_and_squash_actions(counter_example, action):
       return torch.reshape(
@@ -382,8 +384,7 @@ class ImplicitBCAgent():
 
     # Batch consists of num_counter_example rows followed by 1 true action.
     # [B * (n + 1) x act_spec]
-    # combined_true_counter_actions = tf.nest.map_structure(
-    #     concat_and_squash_actions, counter_example_actions, expanded_actions)
+    assert list(counter_example_actions.shape) == [batch_size, self._num_counter_examples, self.action_spec]
     # print("check counter example shape",counter_example_actions.shape, expanded_actions.shape)
     combined_true_counter_actions = concat_and_squash_actions(counter_example_actions, expanded_actions)
 
