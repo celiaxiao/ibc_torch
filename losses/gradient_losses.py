@@ -15,7 +15,6 @@
 
 """EBM gradient penalty loss functions."""
 
-import gin
 from agents import mcmc
 import torch
 

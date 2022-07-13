@@ -35,16 +35,15 @@ import tensorflow as tf
 from tf_agents.environments import suite_gym  # pylint: disable=unused-import,g-bad-import-order
 from tf_agents.trajectories import policy_step
 from torch.utils.data import Dataset
-flags.DEFINE_enum(
+flags.DEFINE_string(
     'task',
     None,
-    block_pushing.BlockTaskVariant._member_names_,  # pylint: disable=protected-access
     'Which task to run')
 flags.DEFINE_bool('use_image_obs', False,
                   'Whether to include image observations.')
 flags.DEFINE_bool('fixed_start_poses', False, 'Whether to use fixed start '
                   'poses.')
-flags.DEFINE_bool('noisy_ee_pose', False, 'Whether to use noisy pose '
+flags.DEFINE_bool('noisy_ee_pose', True, 'Whether to use noisy pose '
                   'for end effector so it does not start in exact position.')
 flags.DEFINE_bool('no_episode_step_limit', False,
                   'If True, remove max_episode_steps step limit.')
@@ -174,7 +173,10 @@ def main(argv):
       if num_episodes >= FLAGS.num_episodes:
         experiences = np.array(experiences)
         dataset = Ibc_dataset(experiences)
-        torch.save(dataset, FLAGS.dataset_path+'/block_push_states_location/multiple_push.pt')
+        # act min max -0.03 0.03
+        # Num episodes: 1000 Num failures: 34
+        # Avg steps: 113.435
+        torch.save(dataset, FLAGS.dataset_path)
         print("act min max", np.array(min_act).min(), np.array(max_act).max())
         print(
             'Num episodes:', num_episodes, 'Num failures:', num_failures )

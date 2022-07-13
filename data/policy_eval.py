@@ -98,7 +98,9 @@ def evaluate(num_episodes,
              video=False,
              viz_img=False,
              output_path=None,
-             mse=False):
+             mse=False,
+             writer=None,
+             epoch=0):
   """Evaluates the given policy for n episodes."""
   if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
     # Options are supported through flags to build_env_name, and different
@@ -150,11 +152,9 @@ def evaluate(num_episodes,
         # raise ValueError('Unknown policy for given task: %s: ' % static_policy)
     elif task != 'PARTICLE':
       policy = eval_policy.Oracle(env, policy=static_policy, mse=mse)
-       # Get an oracle.
-      # if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
-      #   policy = get_oracle_module.get_oracle(env, task)
-      # else:
-      #   policy = get_oracle_module.get_oracle(env, flags.FLAGS.task)
+       # Get an oracle. 
+      # policy = get_oracle_module.get_oracle(env, task)
+
     else:
       raise ValueError('Unknown policy: %s: ' % static_policy)
 
@@ -200,9 +200,14 @@ def evaluate(num_episodes,
   driver.run(time_step, initial_policy_state)
   log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
   logging.info('\n\t\t '.join(log))
+  if writer:
+    for m in metrics:
+      writer.add_scalar(m.name, m.result(), epoch)
+  else:
+    with open(output_path+'metrics.txt', 'w') as f:
+      f.write(' '.join(map(str, log)))
   print(log)
-  with open(output_path+'metrics.txt', 'w') as f:
-    f.write(' '.join(map(str, log)))
+  
 
 
   env.close()

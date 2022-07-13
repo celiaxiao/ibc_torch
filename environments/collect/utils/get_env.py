@@ -17,6 +17,8 @@
 from absl import logging
 import gin
 from environments.block_pushing import block_pushing  # pylint: disable=unused-import
+from environments.block_pushing import block_pushing_discontinuous
+from environments.block_pushing import block_pushing_multimodal
 from tf_agents.environments import suite_gym
 
 
@@ -31,10 +33,16 @@ def get_env(task,
   del use_image_obs
   del fixed_start_poses
   del noisy_ee_pose
-  env_name = block_pushing.build_env_name(
-      task,
-      shared_memory_pybullet,
-      use_image_obs=False,
-      use_normalized_env=False)
+  print(task, task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED'])
+  if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
+    # Options are supported through flags to build_env_name, and different
+    # registered envs.
+    env_name = block_pushing.build_env_name(task, shared_memory_pybullet, use_image_obs=False)
+  elif task in ['PUSH_DISCONTINUOUS']:
+    env_name = block_pushing_discontinuous.build_env_name(
+        task, shared_memory_pybullet, use_image_obs=False)
+  elif task in ['PUSH_MULTIMODAL']:
+    env_name = block_pushing_multimodal.build_env_name(
+        task, shared_memory_pybullet, use_image_obs=False)
   logging.info('Loading environment %s (env_name=%s)', task, env_name)
   return suite_gym.load(env_name, max_episode_steps=max_episode_steps)
