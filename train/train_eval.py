@@ -2,11 +2,13 @@ from audioop import maxpp
 import os
 import sys
 from absl import flags
+from absl import logging
 from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
 from agents.utils import save_config, tile_batch, get_sampling_spec
 from eval import eval_env as eval_env_module
 from train import make_video as video_module
+from train import get_eval_actor as eval_actor_module
 from network import mlp_ebm
 import torch
 import torch.distributions as D
@@ -20,7 +22,6 @@ from data import policy_eval
 from data.transform_dataset import Ibc_dataset
 from data.dataset_d4rl import d4rl_dataset
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter()
 device = torch.device('cuda')
 
 flags.DEFINE_string(
@@ -38,18 +39,139 @@ flags.DEFINE_integer('act_dim', 2,
 flags.DEFINE_integer('eval_episodes', 5,
                      'The dimension of the action.')
 flags.DEFINE_string(
-    'exp_name', 'push',
+    'exp_name', 'experiment',
     'the experiment name')
+flags.DEFINE_boolean('eval', False, 'eval only')
+flags.DEFINE_integer('eval_epoch', 0, 'which checkpoint to evaluate')
 FLAGS = flags.FLAGS
 FLAGS(sys.argv) 
-
+writer = SummaryWriter(log_dir='./runs/'+FLAGS.exp_name)
 def load_dataset(dataset_dir):
     # os.chdir('..')
     dataset = torch.load(dataset_dir)
     # os.chdir('./tests')
     return dataset
 
+def evaluation_step(eval_episodes, eval_env, eval_actor, name_scope_suffix=''):
+    """Evaluates the agent in the environment."""
+    logging.info('Evaluating policy.')
+  
+    # This will eval on seeds:
+    # [0, 1, ..., eval_episodes-1]
+    for eval_seed in range(eval_episodes):
+        eval_env.seed(eval_seed)
+        eval_actor.reset()  # With the new seed, the env actually needs reset.
+        eval_actor.run()
+    # eval_actor.log_metrics()
+    # eval_actor.write_metric_summaries()
+    return eval_actor.metrics
+
+def eval(exp_name, epoch, image_obs, task, goal_tolerance, obs_dim, act_dim, min_action, max_action):
+    """main ibc eval loop
+    The checkpoint will be found in tests/policy_exp/${exp_name}
+
+    Args:
+        exp_name (string): the name for this experiment
+        epoch (int): which checkpoint to eval from
+        image_obs (bool): whether using image as part of the observation
+        task (string): gym env name
+        goal_tolerance (float): tolerance for current position vs the goal
+        obs_dim (int): observation space dimension
+        act_dim (int): action space dimension
+        min_action (float[]): minimal value for action in each dimension
+        max_action (float[]): maximum value for action in each dimension
+    """
+    checkpoint_path = 'tests/policy_exp/'+exp_name+'/'
+    path = checkpoint_path + 'eval/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    num_policy_sample = 512
+    lr = 5e-4
+    act_shape = [act_dim]
+    uniform_boundary_buffer = 0.05
+    normalizer=None
+    dense_layer_type='spectral_norm'
+    rate = 0.
+    width = 512
+    depth = 8
+    use_dfo = False
+    use_langevin = True
+    optimize_again = True
+    inference_langevin_noise_scale = 0.5
+    again_stepsize_init = 1e-5
+    eval_episodes = FLAGS.eval_episodes
+    save_config(locals(), path)   
+
+    max_action = torch.tensor(max_action).float()
+    min_action = torch.tensor(min_action).float()
+    # action sampling based on min/max action +- buffer.
+    min_action, max_action = get_sampling_spec({'minimum':-1*torch.ones(act_dim), 'maximum':torch.ones(act_dim)}, 
+        min_action, max_action, uniform_boundary_buffer)
+    print('updating boundary', min_action, max_action)
+    network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
+        normalizer=normalizer, rate=rate,
+        dense_layer_type=dense_layer_type).to(device)
+    network.load_state_dict(torch.load(checkpoint_path+str(epoch)+".pt"))
+    print("loading checkpoint from epoch", epoch)
+    ibc_policy = IbcPolicy( actor_network = network,
+        action_spec= int(act_shape[0]), #hardcode
+        min_action = min_action, 
+        max_action = max_action,
+        num_action_samples=num_policy_sample,
+        use_dfo=use_dfo,
+        use_langevin=use_langevin,
+        optimize_again=optimize_again,
+        inference_langevin_noise_scale=inference_langevin_noise_scale,
+        again_stepsize_init=again_stepsize_init
+    )
+    env_name = eval_env_module.get_env_name(task, False,
+                                            image_obs)
+    print(('Got env name:', env_name))
+    eval_env = eval_env_module.get_eval_env(
+        env_name, 1, goal_tolerance, 1)
+    env_name_clean = env_name.replace('/', '_')
+    
+    policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
+    logging.info('Evaluating', epoch)
+    eval_actor, success_metric = eval_actor_module.get_eval_actor(
+                            policy,
+                            env_name,
+                            eval_env,
+                            epoch,
+                            eval_episodes,
+                            path,
+                            viz_img=False,
+                            summary_dir_suffix=env_name_clean)
+    
+    metrics = evaluation_step(
+        eval_episodes,
+        eval_env,
+        eval_actor,
+        name_scope_suffix=f'_{env_name}')
+    # for m in metrics:
+    #     writer.add_scalar(m.name, m.result(), epoch)
+    logging.info('Done evaluation')
+    log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
+    logging.info('\n\t\t '.join(log))
+    with open(path+str(epoch)+'_eval.txt', 'w') as f:
+        f.write(' '.join(map(str, log)))
+    print("evaluation at epoch", epoch, "\n", log)
+    
 def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_dim, min_action, max_action):
+    """main ibc train loop
+    The checkpoint will be saved in tests/policy_exp/${exp_name}
+
+    Args:
+        exp_name (string): the name for this experiment
+        dataset_dir (string): path to the dataset directory
+        image_obs (bool): whether using image as part of the observation
+        task (string): gym env name
+        goal_tolerance (float): tolerance for current position vs the goal
+        obs_dim (int): observation space dimension
+        act_dim (int): action space dimension
+        min_action (float[]): minimal value for action in each dimension
+        max_action (float[]): maximum value for action in each dimension
+    """
     path = 'tests/policy_exp/'+exp_name+'/'
     if not os.path.exists(path):
         os.makedirs(path)
@@ -74,6 +196,8 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     again_stepsize_init = 1e-5
     num_epoch = int(1e4)
     eval_episodes = FLAGS.eval_episodes
+    checkpoint_interval = 500
+    eval_interval = 50
     mcmc_iteration = 3
     run_full_chain_under_gradient = True
     save_config(locals(), path)   
@@ -84,16 +208,19 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     min_action, max_action = get_sampling_spec({'minimum':-1*torch.ones(act_dim), 'maximum':torch.ones(act_dim)}, 
         min_action, max_action, uniform_boundary_buffer)
     print('updating boundary', min_action, max_action)
+    # prepare training network
     network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
         normalizer=normalizer, rate=rate,
         dense_layer_type=dense_layer_type).to(device)
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=lr)
+    # get ibc agent
     agent = ibc_agent.ImplicitBCAgent(action_spec=int(act_shape[0]), cloning_network=network,
         optimizer=optim, num_counter_examples=num_counter_sample,
         min_action=min_action, max_action=max_action, add_grad_penalty=add_grad_penalty,
         fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, 
         return_full_chain=False, run_full_chain_under_gradient=run_full_chain_under_gradient)
+    # policy for evaluation
     ibc_policy = IbcPolicy( actor_network = network,
         action_spec= int(act_shape[0]), #hardcode
         min_action = min_action, 
@@ -110,9 +237,11 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     print(('Got env name:', env_name))
     eval_env = eval_env_module.get_eval_env(
         env_name, 1, goal_tolerance, 1)
+    env_name_clean = env_name.replace('/', '_')
     # policy_eval.evaluate(5, task, False, False, False, 
     #             static_policy=ibc_policy, video=False,
     #             writer=writer, epoch=100)
+    # load dataset
     dataset = load_dataset(dataset_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, 
         # generator=torch.Generator(device='cuda'), 
@@ -122,21 +251,40 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
             loss_dict = agent.train(experience)
         
         writer.add_scalar('loss/epoch',loss_dict['loss'].sum().item(), epoch)
-        if task not in ['door-human-v0', 'hammer-human-v0', 'relocate-human-v0']:
-            if epoch % 500 == 0 and epoch > 0:
-                print("loss at epoch",epoch, loss_dict['loss'].sum().item())
-                # evaluate
-                policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
-                video_module.make_video(
-                    policy,
-                    eval_env,
-                    path,
-                    step=np.array(epoch)) # agent.train_step)
-            if epoch % 500 == 0 and epoch > 0:
-                policy_eval.evaluate(eval_episodes, task, False, False, False, 
-                    static_policy=ibc_policy, video=False, output_path=path+str(epoch),
-                    writer=writer, epoch=epoch)
-        if epoch % 500 == 0 and epoch != 0:
+        
+        if epoch % eval_interval == 0 :
+            print("loss at epoch",epoch, loss_dict['loss'].sum().item())
+            # evaluate
+            policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
+            video_module.make_video(
+                policy,
+                eval_env,
+                path,
+                step=np.array(epoch)) # agent.train_step)
+            logging.info('Evaluating epoch', epoch)
+            eval_actor, success_metric = eval_actor_module.get_eval_actor(
+                                    policy,
+                                    env_name,
+                                    eval_env,
+                                    epoch,
+                                    eval_episodes,
+                                    path,
+                                    viz_img=False,
+                                    summary_dir_suffix=env_name_clean)
+           
+            metrics = evaluation_step(
+                eval_episodes,
+                eval_env,
+                eval_actor,
+                name_scope_suffix=f'_{env_name}')
+            for m in metrics:
+                writer.add_scalar(m.name, m.result(), epoch)
+            logging.info('Done evaluation')
+            log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
+            logging.info('\n\t\t '.join(log))
+            print("evaluation at epoch", epoch, "\n", log)
+            
+        if epoch % checkpoint_interval == 0 and epoch != 0:
             torch.save(network.state_dict(), path+str(epoch)+'.pt')
     writer.close()
 
@@ -242,12 +390,25 @@ if __name__ == '__main__':
             action_stat = np.load(f, allow_pickle=True).item()
             max_action = action_stat['max']
             min_action = action_stat['min']
+    elif task == 'pen-human-v0':
+        obs_dim = 45
+        act_dim = 24
+        dataset_dir = 'data/d4rl/pen-human.pt'
+        with open('./data/d4rl/pen-human_action_stat.pt', 'rb') as f:
+            action_stat = np.load(f, allow_pickle=True).item()
+            max_action = action_stat['max']
+            min_action = action_stat['min']
     else:
         raise ValueError("I don't recognize this task to train.")
     image_obs = False
     goal_tolerance = 0.02
     exp_name=FLAGS.exp_name
-    train(exp_name=exp_name, dataset_dir=dataset_dir, image_obs=image_obs,
+    if FLAGS.eval:
+        eval(exp_name=exp_name, epoch=FLAGS.eval_epoch, image_obs=image_obs,
+          task=task, goal_tolerance=goal_tolerance, obs_dim=obs_dim, act_dim=act_dim, 
+          min_action=min_action, max_action=max_action)
+    else:
+        train(exp_name=exp_name, dataset_dir=dataset_dir, image_obs=image_obs,
           task=task, goal_tolerance=goal_tolerance, obs_dim=obs_dim, act_dim=act_dim, 
           min_action=min_action, max_action=max_action)
     # train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim)
