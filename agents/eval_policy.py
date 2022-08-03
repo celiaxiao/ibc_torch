@@ -75,8 +75,11 @@ class Oracle(py_policy.PyPolicy):
       self.reset()
     # adapt the input to ibc policy input format
     obs = {}
-    for key in time_step.observation:
-      obs[key] = torch.tensor(time_step.observation[key])[None, ]
+    if isinstance(time_step.observation, dict):
+      for key in time_step.observation:
+        obs[key] = torch.tensor(time_step.observation[key])[None, ]
+    else:
+      obs = torch.tensor(time_step.observation)[None, ]
     if self.mse:
       obs = torch.concat([torch.flatten(obs[key]) for key in obs.keys()], axis=-1)
       act = self.policy(obs).detach().squeeze().cpu().numpy()
