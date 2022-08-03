@@ -5,28 +5,7 @@ Pytorch implementation of <a href="https://arxiv.org/abs/2109.00137">Implicit Be
 ## Install
 
 ```bash
-conda create -n ibc python=3.8
-pip install -r requirements.txt
+pip install -e .
 ```
 
-## Results
-
-To reproduce results from the Coordinate Regression Task (Section 3), execute the `run_explicit.sh` and `run_implicit.sh` scripts. Note that the implicit policy does a tad bit worst with 30 examples than 10. Not entirely sure why that is the case and need to investigate more.
-
-|             | Explicit Policy | Implicit Policy |
-|-------------|-----------------|-----------------|
-| 10 examples |<img src="assets/explicit_mse_10.png" width="300" height="200"/>|<img src="assets/implicit_ebm_10.png" width="300" height="200"/>|
-| 30 examples |<img src="assets/explicit_mse_30.png" width="300" height="200"/>|<img src="assets/implicit_ebm_30.png" width="300" height="200"/>|
-
-## Citation
-
-```bibtex
-@misc{florence2021implicit,
-    title = {Implicit Behavioral Cloning},
-    author = {Pete Florence and Corey Lynch and Andy Zeng and Oscar Ramirez and Ayzaan Wahid and Laura Downs and Adrian Wong and Johnny Lee and Igor Mordatch and Jonathan Tompson},
-    year = {2021},
-    eprint = {2109.00137},
-    archivePrefix = {arXiv},
-    primaryClass = {cs.RO}
-}
-```
+Check run.sh to see an example execution command
