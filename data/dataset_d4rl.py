@@ -49,9 +49,10 @@ if __name__ == '__main__':
     # door-human: 6729 experience pair, obs shape (6729, 39), act shape (6729, 28)
     # hammer-human: 11310 experience pair, obs shape(11310, 46) act shape(11310, 26)
     # relocate human: 9942 experience pair, obs shape(9942, 39) act shape(9942, 30)
+    # pen human: 5000 experience pair, obs shape(5000, 45) act shape(5000, 24)
 
     # Create the environment
-    env_name = 'relocate-human'
+    env_name = 'pen-human'
     env = gym.make(env_name + '-v0')
 
     # d4rl abides by the OpenAI gym interface
@@ -63,5 +64,5 @@ if __name__ == '__main__':
     dataset = env.get_dataset()
     print(dataset['observations'].shape, dataset['actions'].shape) # An N x dim_observation Numpy array of observations
     save_dataset(dataset, env_name)
-    # get_action_stat(dataset, env_name)
+    get_action_stat(dataset, env_name)
     
