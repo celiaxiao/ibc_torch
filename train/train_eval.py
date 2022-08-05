@@ -172,7 +172,7 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         min_action (float[]): minimal value for action in each dimension
         max_action (float[]): maximum value for action in each dimension
     """
-    path = 'tests/policy_exp/'+exp_name+'/'
+    path = 'work_dirs/policy_exp/'+exp_name+'/'
     if not os.path.exists(path):
         os.makedirs(path)
     batch_size = 512
@@ -204,43 +204,48 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
 
     max_action = torch.tensor(max_action).float()
     min_action = torch.tensor(min_action).float()
+
     # action sampling based on min/max action +- buffer.
     min_action, max_action = get_sampling_spec({'minimum':-1*torch.ones(act_dim), 'maximum':torch.ones(act_dim)}, 
         min_action, max_action, uniform_boundary_buffer)
     print('updating boundary', min_action, max_action)
+
     # prepare training network
     network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
         normalizer=normalizer, rate=rate,
         dense_layer_type=dense_layer_type).to(device)
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=lr)
+
     # get ibc agent
     agent = ibc_agent.ImplicitBCAgent(action_spec=int(act_shape[0]), cloning_network=network,
         optimizer=optim, num_counter_examples=num_counter_sample,
         min_action=min_action, max_action=max_action, add_grad_penalty=add_grad_penalty,
         fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, 
         return_full_chain=False, run_full_chain_under_gradient=run_full_chain_under_gradient)
+
     # policy for evaluation
-    ibc_policy = IbcPolicy( actor_network = network,
-        action_spec= int(act_shape[0]), #hardcode
-        min_action = min_action, 
-        max_action = max_action,
-        num_action_samples=num_policy_sample,
-        use_dfo=use_dfo,
-        use_langevin=use_langevin,
-        optimize_again=optimize_again,
-        inference_langevin_noise_scale=inference_langevin_noise_scale,
-        again_stepsize_init=again_stepsize_init
-    )
-    env_name = eval_env_module.get_env_name(task, False,
-                                            image_obs)
-    print(('Got env name:', env_name))
-    eval_env = eval_env_module.get_eval_env(
-        env_name, 1, goal_tolerance, 1)
-    env_name_clean = env_name.replace('/', '_')
+    # ibc_policy = IbcPolicy( actor_network = network,
+    #     action_spec= int(act_shape[0]), #hardcode
+    #     min_action = min_action, 
+    #     max_action = max_action,
+    #     num_action_samples=num_policy_sample,
+    #     use_dfo=use_dfo,
+    #     use_langevin=use_langevin,
+    #     optimize_again=optimize_again,
+    #     inference_langevin_noise_scale=inference_langevin_noise_scale,
+    #     again_stepsize_init=again_stepsize_init
+    # )
+    # env_name = eval_env_module.get_env_name(task, False,
+    #                                         image_obs)
+    # print(('Got env name:', env_name))
+    # eval_env = eval_env_module.get_eval_env(
+    #     env_name, 1, goal_tolerance, 1)
+    # env_name_clean = env_name.replace('/', '_')
     # policy_eval.evaluate(5, task, False, False, False, 
     #             static_policy=ibc_policy, video=False,
     #             writer=writer, epoch=100)
+
     # load dataset
     dataset = load_dataset(dataset_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, 
@@ -254,6 +259,9 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         
         if epoch % eval_interval == 0 :
             print("loss at epoch",epoch, loss_dict['loss'].sum().item())
+
+            break # yihe: skip evaluation for now
+
             # evaluate
             policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
             video_module.make_video(
@@ -398,12 +406,19 @@ if __name__ == '__main__':
             action_stat = np.load(f, allow_pickle=True).item()
             max_action = action_stat['max']
             min_action = action_stat['min']
+    elif task == 'Hang-v0':
+        obs_dim = 6144
+        act_dim = 8
+        dataset_dir = ''
+        max_action = [1.0] * 8
+        min_action = [-1.0] * 8
     else:
         raise ValueError("I don't recognize this task to train.")
     image_obs = False
     goal_tolerance = 0.02
     exp_name=FLAGS.exp_name
-    if FLAGS.eval:
+    # if FLAGS.eval:
+    if False:
         eval(exp_name=exp_name, epoch=FLAGS.eval_epoch, image_obs=image_obs,
           task=task, goal_tolerance=goal_tolerance, obs_dim=obs_dim, act_dim=act_dim, 
           min_action=min_action, max_action=max_action)
