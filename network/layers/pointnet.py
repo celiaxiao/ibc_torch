@@ -24,6 +24,7 @@ class pointNetLayer(nn.Module):
         self.mlp_out = nn.Linear(1024, out_dim)
 
     def forward(self, x):
+        print(x.size())
         assert x.size()[-1] == 3 # make sure last dim = 3
         x = x.transpose(2, 1)
         
@@ -33,7 +34,7 @@ class pointNetLayer(nn.Module):
 
         print(x.shape)
         
-        x = torch.max(x, 2, keepdim=True)[0] # [B, 1, 1024]
+        x = torch.max(x, 2, keepdim=True)[0] # [B, 1024, 1]
         print(x.shape)
         x = x.view(-1, 1024) # global feature, [B, 1024]
         print(x.shape)

@@ -29,7 +29,7 @@ class particle_dataset(Dataset):
         xyz = self.experiences[idx]['xyz']
         agent = self.experiences[idx]['agent']
         act = self.experiences[idx]['action']
-        return xyz, agent.sqeeze(), act.squeeze()
+        return xyz, agent, act
 
 def save_dataset(dataset, env_name):
     print(dataset['observations'].shape, dataset['actions'].shape) # An N x dim_observation Numpy array of observations
