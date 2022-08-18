@@ -13,12 +13,6 @@ class pointNetLayer(nn.Module):
         super().__init__()
 
         # global feature mlp
-        # self.fc1 = nn.Linear(3, 64)
-        # self.bn1 = nn.BatchNorm1d(64)
-        # self.fc2 = nn.Linear(64, 128)
-        # self.bn2 = nn.BatchNorm1d(128)
-        # self.fc3 = nn.Linear(128, 1024)
-        # self.bn3 = nn.BatchNorm1d(1024)
         self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
@@ -54,7 +48,8 @@ if __name__ == "__main__":
     print(input.shape)
     ptnet = pointNetLayer()
     print(ptnet)
-    out = torch.squeeze(ptnet(input))
+    # out = torch.squeeze(ptnet(input))
+    out = ptnet(input)
     print(out.shape) # [N, 256]
 
 
