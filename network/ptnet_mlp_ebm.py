@@ -2,6 +2,8 @@
 from network.layers import resnet, spectral_norm, pointnet
 import torch.nn as nn
 import torch
+from torch.utils.data import Dataset, DataLoader
+from data.dataset_maniskill import particle_dataset
 
 class PTNETMLPEBM(nn.Module):
     """MLP-EBM that process obs dict separately before concat with act"""
@@ -52,9 +54,9 @@ class PTNETMLPEBM(nn.Module):
             batch_size = xyz.shape[0]
 
         # Flatten obs across time: [B x T * obs_spec]
-        xyz = torch.reshape(xyz, [batch_size, -1])
-        agent = torch.reshape(agent, [batch_size, -1])
-        # print("xyz, agent", xyz.shape, agent.shape)
+        # xyz = torch.reshape(xyz, [batch_size, -1])
+        # agent = torch.reshape(agent, [batch_size, -1])
+        print("xyz, agent", xyz.shape, agent.shape)
 
         xyz = self._ptnet(xyz)
         print("shape after pointnet", xyz.shape)
@@ -72,3 +74,15 @@ class PTNETMLPEBM(nn.Module):
         x = torch.squeeze(x, axis=-1)
 
         return x
+
+if __name__ == "__main__":
+    dataset = torch.load("/home/yihe/ibc_torch/work_dirs/demos/hang_10traj.pt")
+    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=0)
+
+    model = PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=8).to(torch.device('cuda'))
+    for idx, sampled in enumerate(dataloader):
+        xyz, agent, act = sampled
+        # print("xyz, agent, act", xyz.shape, agent.shape, act.shape)
+        output = model(sampled)
+        print(output.shape)
+        break
