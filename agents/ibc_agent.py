@@ -182,6 +182,7 @@ class ImplicitBCAgent():
                         combined_true_counter_actions.detach())
         # [B * n+1]
         predictions = self.cloning_network(network_inputs)
+        # print(predictions.size(), network_inputs[0].size(), network_inputs[1].size())
     # [B, n+1]
     predictions = torch.reshape(predictions,
                                 [batch_size, self._num_counter_examples + 1])

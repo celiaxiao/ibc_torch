@@ -115,6 +115,7 @@ class IbcPolicy():
     super().__init__()
 
   def act(self, time_step):
+    # time_step: dict{'observations'}
     distribution = self._distribution(time_step=time_step)
     sample = distribution.sample()
     return sample
