@@ -13,7 +13,7 @@ class PTNETMLPEBM(nn.Module):
                  agent_input_dim:int,
                  act_input_dim:int,
                  out_dim:int,
-                 width=512,
+                 width=256,
                  depth=2,
                  rate=0.1,
                  activation='relu',
@@ -41,9 +41,14 @@ class PTNETMLPEBM(nn.Module):
                 self._project_energy)
 
     def forward(self, inputs):
+        # print("entering forward")
         # obs: dict of named obs_spec.
         # act:   [B x act_spec]
-        xyz, agent, act = inputs
+        obs, act = inputs
+        # print(obs.size())
+        xyz = obs[:,:1024*3].reshape((-1, 1024, 3))
+        agent = obs[:,1024*3:]
+        # print("xyz, act", xyz.size(), act.size())
         
         # TODO: must make sure we calculate correct input shape when we create the network
         # Combine dict of observations to concatenated tensor. [B x T x obs_spec] 
@@ -56,14 +61,14 @@ class PTNETMLPEBM(nn.Module):
         # Flatten obs across time: [B x T * obs_spec]
         # xyz = torch.reshape(xyz, [batch_size, -1])
         # agent = torch.reshape(agent, [batch_size, -1])
-        print("xyz, agent", xyz.shape, agent.shape)
+        # print("xyz, agent", xyz.shape, agent.shape)
 
         xyz = self._ptnet(xyz)
-        print("shape after pointnet", xyz.shape)
+        # print("shape after pointnet", xyz.shape)
 
         # Concat [obs, act].
         x = torch.concat([xyz, agent, act], -1)
-        print("concat shape", x.shape)
+        # print("concat shape", x.shape)
         # Forward mlp.
         x = self._mlp(x)
 
@@ -81,7 +86,7 @@ if __name__ == "__main__":
 
     model = PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=8).to(torch.device('cuda'))
     for idx, sampled in enumerate(dataloader):
-        xyz, agent, act = sampled
+        # xyz, agent, act = sampled
         # print("xyz, agent, act", xyz.shape, agent.shape, act.shape)
         output = model(sampled)
         print(output.shape)
