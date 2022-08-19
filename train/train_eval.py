@@ -6,10 +6,10 @@ from absl import logging
 from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
 from agents.utils import save_config, tile_batch, get_sampling_spec
-from eval import eval_env as eval_env_module
+# from eval import eval_env as eval_env_module
 from train import make_video as video_module
 from train import get_eval_actor as eval_actor_module
-from network import mlp_ebm
+from network import mlp_ebm, ptnet_mlp_ebm
 import torch
 import torch.distributions as D
 import torch.nn as nn
@@ -20,7 +20,8 @@ import tqdm
 from torch.utils.data import DataLoader, Dataset
 from data import policy_eval
 from data.transform_dataset import Ibc_dataset
-from data.dataset_d4rl import d4rl_dataset
+# from data.dataset_d4rl import d4rl_dataset
+from data.dataset_maniskill import particle_dataset
 from torch.utils.tensorboard import SummaryWriter
 device = torch.device('cuda')
 
@@ -124,6 +125,10 @@ def eval(exp_name, epoch, image_obs, task, goal_tolerance, obs_dim, act_dim, min
         inference_langevin_noise_scale=inference_langevin_noise_scale,
         again_stepsize_init=again_stepsize_init
     )
+
+    # To get policy output action, call action = ibc_policy.act({'observation':obs}).squeeze()
+    # obs need to be in dim 1 * obs_dim (batch_size=1)
+
     env_name = eval_env_module.get_env_name(task, False,
                                             image_obs)
     print(('Got env name:', env_name))
@@ -175,8 +180,8 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     path = 'work_dirs/policy_exp/'+exp_name+'/'
     if not os.path.exists(path):
         os.makedirs(path)
-    batch_size = 512
-    num_counter_sample = 8
+    batch_size = 128
+    num_counter_sample = 4
     num_policy_sample = 512
     lr = 5e-4
     act_shape = [act_dim]
@@ -196,10 +201,10 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     again_stepsize_init = 1e-5
     num_epoch = int(1e4)
     eval_episodes = FLAGS.eval_episodes
-    checkpoint_interval = 500
+    checkpoint_interval = 50
     eval_interval = 50
     mcmc_iteration = 3
-    run_full_chain_under_gradient = True
+    run_full_chain_under_gradient = False
     save_config(locals(), path)   
 
     max_action = torch.tensor(max_action).float()
@@ -211,9 +216,10 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     print('updating boundary', min_action, max_action)
 
     # prepare training network
-    network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
-        normalizer=normalizer, rate=rate,
-        dense_layer_type=dense_layer_type).to(device)
+    # network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
+    #     normalizer=normalizer, rate=rate,
+    #     dense_layer_type=dense_layer_type).to(device)
+    network = ptnet_mlp_ebm.PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=1).to(device)
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -251,46 +257,49 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     dataloader = DataLoader(dataset, batch_size=batch_size, 
         # generator=torch.Generator(device='cuda'), 
         shuffle=False)
+
     for epoch in tqdm.trange(num_epoch):
         for experience in iter(dataloader):
+            # print("from dataloader", experience[0].size(), experience[1].size())
             loss_dict = agent.train(experience)
+            # print("HERE", loss_dict)
         
         writer.add_scalar('loss/epoch',loss_dict['loss'].sum().item(), epoch)
         
         if epoch % eval_interval == 0 :
             print("loss at epoch",epoch, loss_dict['loss'].sum().item())
 
-            break # yihe: skip evaluation for now
+             # yihe: skip evaluation for now
 
             # evaluate
-            policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
-            video_module.make_video(
-                policy,
-                eval_env,
-                path,
-                step=np.array(epoch)) # agent.train_step)
-            logging.info('Evaluating epoch', epoch)
-            eval_actor, success_metric = eval_actor_module.get_eval_actor(
-                                    policy,
-                                    env_name,
-                                    eval_env,
-                                    epoch,
-                                    eval_episodes,
-                                    path,
-                                    viz_img=False,
-                                    summary_dir_suffix=env_name_clean)
+            # policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
+            # video_module.make_video(
+            #     policy,
+            #     eval_env,
+            #     path,
+            #     step=np.array(epoch)) # agent.train_step)
+            # logging.info('Evaluating epoch', epoch)
+            # eval_actor, success_metric = eval_actor_module.get_eval_actor(
+            #                         policy,
+            #                         env_name,
+            #                         eval_env,
+            #                         epoch,
+            #                         eval_episodes,
+            #                         path,
+            #                         viz_img=False,
+            #                         summary_dir_suffix=env_name_clean)
            
-            metrics = evaluation_step(
-                eval_episodes,
-                eval_env,
-                eval_actor,
-                name_scope_suffix=f'_{env_name}')
-            for m in metrics:
-                writer.add_scalar(m.name, m.result(), epoch)
-            logging.info('Done evaluation')
-            log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
-            logging.info('\n\t\t '.join(log))
-            print("evaluation at epoch", epoch, "\n", log)
+            # metrics = evaluation_step(
+            #     eval_episodes,
+            #     eval_env,
+            #     eval_actor,
+            #     name_scope_suffix=f'_{env_name}')
+            # for m in metrics:
+            #     writer.add_scalar(m.name, m.result(), epoch)
+            # logging.info('Done evaluation')
+            # log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
+            # logging.info('\n\t\t '.join(log))
+            # print("evaluation at epoch", epoch, "\n", log)
             
         if epoch % checkpoint_interval == 0 and epoch != 0:
             torch.save(network.state_dict(), path+str(epoch)+'.pt')
@@ -409,7 +418,7 @@ if __name__ == '__main__':
     elif task == 'Hang-v0':
         obs_dim = 6144
         act_dim = 8
-        dataset_dir = ''
+        dataset_dir = '/home/yihe/ibc_torch/work_dirs/demos/hang_10kPairs.pt'
         max_action = [1.0] * 8
         min_action = [-1.0] * 8
     else:
