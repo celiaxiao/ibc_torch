@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tqdm
 import json
-device = torch.device('cpu')
+from moviepy.editor import ImageSequenceClip
+device = torch.device('cuda')
 
 class Evaluation:
     def __init__(
@@ -61,13 +62,14 @@ class Evaluation:
         np.save(self.eval_info_path, self.eval_info)
 
     
-    def run_single_episode(self, seed=0):
+    def run_single_episode(self, seed=3):
         '''
         Run evaluation for a single episode on a given seed.
         '''
         self.env.reset(seed=seed)
         total_reward = 0
         done = False
+        imgs = [self.env.render("rgb_array")]
         
         # for num_steps in range(len(self.env._max_episode_steps)):
         for num_steps in range(350):
@@ -87,15 +89,25 @@ class Evaluation:
             print("prediceted action", act)
 
             # step and get rew, done
-            _, rew, done, _ = self.env.step(act)
+            _, rew, done, _ = self.env.step(act.detach().cpu().numpy())
+            print(rew, done)
 
             # save info and update steps
             total_reward += rew
+            imgs.append(self.env.render("rgb_array"))
+        
+        self.animate(imgs)
         
         return total_reward, not done, num_steps
 
+    def animate(self, imgs, fps=20):
+        imgs = ImageSequenceClip(imgs, fps=fps)
+        imgs.write_videofile("animate.mp4", fps=fps)
+
 
 if __name__ == "__main__":
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
     env = HangEnvIbc()
     print(env.get_obs().shape)
 
@@ -106,7 +118,7 @@ if __name__ == "__main__":
     eval = Evaluation(
         env=env, 
         network_backbone=None,
-        network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/hang_10kPairs/600.pt',
+        network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/hang_10kPairs/700.pt',
         agent_cfg=agent_cfg,
         eval_cfg=None
         )
