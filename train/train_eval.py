@@ -220,6 +220,8 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     #     normalizer=normalizer, rate=rate,
     #     dense_layer_type=dense_layer_type).to(device)
     network = ptnet_mlp_ebm.PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=1).to(device)
+    # load state dict
+    network.load_state_dict(torch.load('/home/yihe/ibc_torch/work_dirs/policy_exp/hang_10kPairs/50.pt'))
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -262,12 +264,19 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         for experience in iter(dataloader):
             # print("from dataloader", experience[0].size(), experience[1].size())
             loss_dict = agent.train(experience)
+            grad_norm, grad_max = grad_info(network)
+            # print(grad_norm, grad_max)
+            # print(agent.train_step_counter)
+            # exit(0)
             # print("HERE", loss_dict)
         
-        writer.add_scalar('loss/epoch',loss_dict['loss'].sum().item(), epoch)
-        
+            writer.add_scalar('loss/step',loss_dict['loss'].mean().item(), agent.train_step_counter)
+            writer.add_scalar('loss/grad_norm',grad_norm, agent.train_step_counter)
+            writer.add_scalar('loss/grad_max',grad_max, agent.train_step_counter)
+        print(agent.train_step_counter)
+
         if epoch % eval_interval == 0 :
-            print("loss at epoch",epoch, loss_dict['loss'].sum().item())
+            print("loss at epoch",epoch, loss_dict['loss'].mean().item())
 
              # yihe: skip evaluation for now
 
@@ -302,7 +311,7 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
             # print("evaluation at epoch", epoch, "\n", log)
             
         if epoch % checkpoint_interval == 0 and epoch != 0:
-            torch.save(network.state_dict(), path+str(epoch)+'.pt')
+            torch.save(network.state_dict(), path+'checkpoints/'+str(epoch)+'.pt')
     writer.close()
 
 def train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim):
@@ -367,8 +376,21 @@ def train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim):
             policy_eval.evaluate(eval_episodes, task, False, False, False, 
                 static_policy=network, video=False, output_path=path+str(epoch), mse=True)
         if epoch % 500 == 0 and epoch != 0:
-            torch.save(network.state_dict(), path+str(epoch)+'.pt')
+            torch.save(network.state_dict(), path+'checkpoints/'+str(epoch)+'.pt')
     
+
+
+@torch.no_grad()
+def grad_info(network, ord=2):
+    '''
+    Helper function to get norm and max of gradient of network.
+    Copied from pyrl.
+    '''
+    grads = [torch.norm(_.grad.detach(), ord) for _ in network.parameters() if _.requires_grad and _.grad is not None]
+    grad_norm = torch.norm(torch.stack(grads), ord).item() if len(grads) > 0 else 0.0
+    grad_max = torch.max(torch.stack(grads)).item() if len(grads) > 0 else 0.0
+    
+    return grad_norm, grad_max
 
 
 if __name__ == '__main__':
