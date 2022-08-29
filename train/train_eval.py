@@ -10,6 +10,7 @@ from agents.utils import save_config, tile_batch, get_sampling_spec
 from train import make_video as video_module
 from train import get_eval_actor as eval_actor_module
 from network import mlp_ebm, ptnet_mlp_ebm
+from network.layers import pointnet
 import torch
 import torch.distributions as D
 import torch.nn as nn
@@ -21,7 +22,7 @@ from torch.utils.data import DataLoader, Dataset
 from data import policy_eval
 from data.transform_dataset import Ibc_dataset
 # from data.dataset_d4rl import d4rl_dataset
-from data.dataset_maniskill import particle_dataset
+from data.dataset_maniskill import particle_dataset, state_dataset
 from torch.utils.tensorboard import SummaryWriter
 device = torch.device('cuda')
 
@@ -180,8 +181,8 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     path = 'work_dirs/policy_exp/'+exp_name+'/'
     if not os.path.exists(path):
         os.makedirs(path)
-    batch_size = 128
-    num_counter_sample = 4
+    batch_size = 512
+    num_counter_sample = 7
     num_policy_sample = 512
     lr = 5e-4
     act_shape = [act_dim]
@@ -191,9 +192,11 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     rate = 0.
     width = 512
     depth = 8
+    use_visual = True
+
     fraction_langevin_samples = 1.
     fraction_dfo_samples = 0.
-    add_grad_penalty = False
+    add_grad_penalty = True
     use_dfo = False
     use_langevin = True
     optimize_again = True
@@ -216,12 +219,13 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     print('updating boundary', min_action, max_action)
 
     # prepare training network
-    # network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
-    #     normalizer=normalizer, rate=rate,
-    #     dense_layer_type=dense_layer_type).to(device)
-    network = ptnet_mlp_ebm.PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=1).to(device)
+    network_visual = pointnet.pointNetLayer(out_dim=512)
+    network = mlp_ebm.MLPEBM((act_shape[0]+obs_dim), 1, width=width, depth=depth,
+        normalizer=normalizer, rate=rate,
+        dense_layer_type=dense_layer_type).to(device)
+    # network = ptnet_mlp_ebm.PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=1).to(device)
     # load state dict
-    network.load_state_dict(torch.load('/home/yihe/ibc_torch/work_dirs/policy_exp/hang_10kPairs/50.pt'))
+    # network.load_state_dict(torch.load('/home/yihe/ibc_torch/work_dirs/policy_exp/hang_10kPairs/50.pt'))
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -232,86 +236,43 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, 
         return_full_chain=False, run_full_chain_under_gradient=run_full_chain_under_gradient)
 
-    # policy for evaluation
-    # ibc_policy = IbcPolicy( actor_network = network,
-    #     action_spec= int(act_shape[0]), #hardcode
-    #     min_action = min_action, 
-    #     max_action = max_action,
-    #     num_action_samples=num_policy_sample,
-    #     use_dfo=use_dfo,
-    #     use_langevin=use_langevin,
-    #     optimize_again=optimize_again,
-    #     inference_langevin_noise_scale=inference_langevin_noise_scale,
-    #     again_stepsize_init=again_stepsize_init
-    # )
-    # env_name = eval_env_module.get_env_name(task, False,
-    #                                         image_obs)
-    # print(('Got env name:', env_name))
-    # eval_env = eval_env_module.get_eval_env(
-    #     env_name, 1, goal_tolerance, 1)
-    # env_name_clean = env_name.replace('/', '_')
-    # policy_eval.evaluate(5, task, False, False, False, 
-    #             static_policy=ibc_policy, video=False,
-    #             writer=writer, epoch=100)
-
     # load dataset
     dataset = load_dataset(dataset_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, 
-        # generator=torch.Generator(device='cuda'), 
-        shuffle=False)
+        generator=torch.Generator(device='cuda'), 
+        shuffle=True)
 
     for epoch in tqdm.trange(num_epoch):
         for experience in iter(dataloader):
             # print("from dataloader", experience[0].size(), experience[1].size())
+            visual_embed = network_visual(experience[0][:,:1024*3].reshape((-1, 1024, 3)))
+            # print(visual_embed.shape)
+            experience = (torch.concat([visual_embed, experience[0][:,1024*3:]], -1), experience[1])
+            # print("after visual embedding", experience[0].size(), experience[1].size())
+            # TODO: process pointcloud here
             loss_dict = agent.train(experience)
-            grad_norm, grad_max = grad_info(network)
-            # print(grad_norm, grad_max)
-            # print(agent.train_step_counter)
-            # exit(0)
-            # print("HERE", loss_dict)
+            grad_norm, grad_max, weight_norm, weight_max = network_info(network)
+            
+            # if grad_norm > 100:
+                # torch.save(network.state_dict(), path+str(epoch)+'grad_exp'+'.pt')
+                # from IPython import embed
+                # embed()
+            #     exit(0)
         
             writer.add_scalar('loss/step',loss_dict['loss'].mean().item(), agent.train_step_counter)
-            writer.add_scalar('loss/grad_norm',grad_norm, agent.train_step_counter)
-            writer.add_scalar('loss/grad_max',grad_max, agent.train_step_counter)
+            writer.add_scalar('info/grad_norm',grad_norm, agent.train_step_counter)
+            writer.add_scalar('info/grad_max',grad_max, agent.train_step_counter)
+            writer.add_scalar('info/weight_norm',weight_norm, agent.train_step_counter)
+            writer.add_scalar('info/weight_max',weight_max, agent.train_step_counter)
         print(agent.train_step_counter)
 
         if epoch % eval_interval == 0 :
             print("loss at epoch",epoch, loss_dict['loss'].mean().item())
-
-             # yihe: skip evaluation for now
-
-            # evaluate
-            # policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
-            # video_module.make_video(
-            #     policy,
-            #     eval_env,
-            #     path,
-            #     step=np.array(epoch)) # agent.train_step)
-            # logging.info('Evaluating epoch', epoch)
-            # eval_actor, success_metric = eval_actor_module.get_eval_actor(
-            #                         policy,
-            #                         env_name,
-            #                         eval_env,
-            #                         epoch,
-            #                         eval_episodes,
-            #                         path,
-            #                         viz_img=False,
-            #                         summary_dir_suffix=env_name_clean)
-           
-            # metrics = evaluation_step(
-            #     eval_episodes,
-            #     eval_env,
-            #     eval_actor,
-            #     name_scope_suffix=f'_{env_name}')
-            # for m in metrics:
-            #     writer.add_scalar(m.name, m.result(), epoch)
-            # logging.info('Done evaluation')
-            # log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
-            # logging.info('\n\t\t '.join(log))
-            # print("evaluation at epoch", epoch, "\n", log)
             
-        if epoch % checkpoint_interval == 0 and epoch != 0:
-            torch.save(network.state_dict(), path+'checkpoints/'+str(epoch)+'.pt')
+        # if epoch % checkpoint_interval == 0 and epoch != 0:
+        if epoch % checkpoint_interval == 0:
+            torch.save(network.state_dict(), path+'mlp_'+str(epoch)+'.pt')
+            torch.save(network_visual.state_dict(), path+'pointnet_'+str(epoch)+'.pt')
     writer.close()
 
 def train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim):
@@ -381,16 +342,23 @@ def train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim):
 
 
 @torch.no_grad()
-def grad_info(network, ord=2):
+def network_info(network, ord=2):
     '''
     Helper function to get norm and max of gradient of network.
     Copied from pyrl.
     '''
     grads = [torch.norm(_.grad.detach(), ord) for _ in network.parameters() if _.requires_grad and _.grad is not None]
     grad_norm = torch.norm(torch.stack(grads), ord).item() if len(grads) > 0 else 0.0
+    # if grad_norm > 2.5:
+    #     from IPython import embed
+    #     embed()
     grad_max = torch.max(torch.stack(grads)).item() if len(grads) > 0 else 0.0
+
+    weights = [torch.norm(_.detach(), ord) for _ in network.parameters()]
+    weight_norm = torch.norm(torch.stack(weights), ord).item() if len(weights) > 0 else 0.0
+    weight_max = torch.max(torch.stack(weights)).item() if len(weights) > 0 else 0.0
     
-    return grad_norm, grad_max
+    return grad_norm, grad_max, weight_norm, weight_max
 
 
 if __name__ == '__main__':
@@ -438,7 +406,7 @@ if __name__ == '__main__':
             max_action = action_stat['max']
             min_action = action_stat['min']
     elif task == 'Hang-v0':
-        obs_dim = 6144
+        obs_dim = 512+25
         act_dim = 8
         dataset_dir = '/home/yihe/ibc_torch/work_dirs/demos/hang_10kPairs.pt'
         max_action = [1.0] * 8

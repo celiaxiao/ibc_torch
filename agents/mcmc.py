@@ -302,7 +302,7 @@ def langevin_actions_given_obs(
     min_actions,
     max_actions,
     num_action_samples,
-    num_iterations=25, # TODO: hardcode to match ibc config, used to be 25
+    num_iterations=100, # TODO: hardcode to match ibc config, used to be 25
     sampler_stepsize_init=0.5, # TODO: used to 0.1
     sampler_stepsize_decay=0.8,  # if using exponential langevin rate.
     noise_scale=0.5, # TODO: used to be 1.0

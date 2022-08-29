@@ -105,7 +105,7 @@ class ImplicitBCAgent():
     loss_info = self._loss(experience)
     assert torch.isfinite(loss_info['loss']).all()
     self._optimizer.zero_grad()
-    loss_info['loss'].sum().backward()
+    loss_info['loss'].mean().backward()
     self._optimizer.step()
     self.train_step_counter += 1
     return loss_info
