@@ -2,12 +2,13 @@ from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
 from network import mlp_ebm, ptnet_mlp_ebm
 from network.layers import pointnet
-from environments.maniskill.maniskill_env import HangEnvParticle, HangEnvState
+from environments.maniskill.maniskill_env import HangEnvParticle, HangEnvState, FillEnvParticle, ExcavateEnvParticle
 import torch
 import numpy as np
 import tqdm
 import json
 from moviepy.editor import ImageSequenceClip
+import argparse
 device = torch.device('cuda')
 
 class Evaluation:
@@ -53,7 +54,8 @@ class Evaluation:
         self.episode_id = 0
         self.eval_info = []
         self.eval_info_path = '/home/yihe/ibc_torch/work_dirs/policy_exp/hang_10kPairs/eval/' + 'eval_info.npy'
-        self.eval_video_path = "/home/yihe/ibc_torch/work_dirs/policy_exp/speedup_largeBatch/eval/50pt.mp4"
+        self.eval_video_path = "/home/yihe/ibc_torch/work_dirs/policy_exp/Excavate-v0/visual_10k_100lag/eval/3000_val.mp4"
+        # self.eval_video_path = "/home/yihe/ibc_torch/work_dirs/policy_exp/Fill-v0/visual_10k_100lag/eval/3000_val.mp4"
 
     def run_eval(self):
         '''
@@ -67,7 +69,7 @@ class Evaluation:
         np.save(self.eval_info_path, self.eval_info)
 
     
-    def run_single_episode(self, seed=3):
+    def run_single_episode(self, seed=2):
         '''
         Run evaluation for a single episode on a given seed.
         '''
@@ -77,7 +79,7 @@ class Evaluation:
         imgs = [self.env.render("rgb_array")]
         
         # for num_steps in range(len(self.env._max_episode_steps)):
-        for num_steps in range(350):
+        for num_steps in range(250):
             if done:
                 break
 
@@ -85,11 +87,16 @@ class Evaluation:
 
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
-            obs = torch.tensor(obs).to(device).expand(1, -1)
+            obs = torch.tensor(obs).to(device, dtype=torch.float).expand(1, -1)
             # print('obs shape', obs.size())
             visual_embed = self.network_visual(obs[:,:1024*3].reshape(-1, 1024, 3))
             obs = torch.concat([visual_embed, obs[:,1024*3:]], -1)
-            print('visual embed shape:', visual_embed.size(), ' new obs shape:', obs.size())
+
+            # Fill Only
+            # visual_embed = self.network_visual(obs[:,:704*3].reshape(-1, 704, 3))
+            # obs = torch.concat([visual_embed, obs[:,704*3:]], -1)
+
+            # print('visual embed shape:', visual_embed.size(), ' new obs shape:', obs.size())
             # exit(0)
 
             # get predicted action from policy
@@ -99,7 +106,8 @@ class Evaluation:
 
             # step and get rew, done
             _, rew, done, _ = self.env.step(act.detach().cpu().numpy())
-            print(rew, done)
+            print("Current step reward:", rew)
+            print("Traj is done:", bool(done))
 
             # save info and update steps
             total_reward += rew
@@ -113,27 +121,48 @@ class Evaluation:
         imgs = ImageSequenceClip(imgs, fps=fps)
         imgs.write_videofile(path, fps=fps)
 
+def main_eval():
 
-if __name__ == "__main__":
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
-    env = HangEnvParticle()
+    # Currently passing arguments through command line
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env_name', type=str)
+    parser.add_argument('--eval_epoch', type=int, default=500)
+    args = parser.parse_args()
+
+    # Create evaluation env(s)
+    if args.env_name == "Hang-v0":
+        env = HangEnvParticle()
+        input_dim = 512+25+8
+    elif args.env_name == "Fill-v0":
+        env = FillEnvParticle()
+        input_dim = 512+16+7
+    elif args.env_name == "Excavate-v0":
+        env = ExcavateEnvParticle()
+        input_dim = 512+15+7
+    else:
+        print("No available evaluation for environment", args.env_name)
+        exit(0)
+
     # env = HangEnvState(target_file='/home/yihe/ibc_torch/work_dirs/demos/hang_state_test_target.npy')
-    print(env.get_obs().shape)
+    print("env observation shape:", env.get_obs().shape)
 
     # agent_cfg = json.load(open('/home/yihe/ibc_torch/work_dirs/policy_exp/state-100lag/config.json'))
-    agent_cfg = json.load(open('/home/yihe/ibc_torch/work_dirs/policy_exp/speedup_largeBatch/config.json'))
+    agent_cfg = json.load(open('/home/yihe/ibc_torch/work_dirs/policy_exp/' + args.env_name + '/visual_10k_100lag/config.json'))
 
     # network_backbone = ptnet_mlp_ebm.PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=1)
-    network_backbone = mlp_ebm.MLPEBM(537+8, 1, width=512, depth=8, normalizer=None, rate=0., dense_layer_type='spectral_norm')
+    network_backbone = mlp_ebm.MLPEBM(input_dim, 1, width=512, depth=8, normalizer=None, rate=0., dense_layer_type='spectral_norm') #Hang
     visual_backbone = pointnet.pointNetLayer(out_dim=512)
 
     eval = Evaluation(
         env=env, 
         network_backbone=network_backbone,
         visual_backbone=visual_backbone,
-        network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/speedup_largeBatch/mlp_50.pt',
-        visual_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/speedup_largeBatch/pointnet_50.pt',
+        network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Excavate-v0/visual_10k_100lag/checkpoints/mlp_3000.pt',
+        visual_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Excavate-v0/visual_10k_100lag/checkpoints/pointnet_3000.pt',
+        # network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Fill-v0/visual_10k_100lag/checkpoints/mlp_3000.pt',
+        # visual_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Fill-v0/visual_10k_100lag/checkpoints/pointnet_3000.pt',
         agent_cfg=agent_cfg,
         eval_cfg=None
         )
@@ -141,3 +170,5 @@ if __name__ == "__main__":
     eval.run_eval()
 
 
+if __name__ == "__main__":
+    main_eval()
