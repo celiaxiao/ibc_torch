@@ -1,4 +1,6 @@
 from mani_skill2.envs.mpm.hang_env import HangEnv
+from mani_skill2.envs.mpm.fill_env import FillEnv
+from mani_skill2.envs.mpm.excavate_env import ExcavateEnv
 import numpy as np
 from numpy.random import default_rng
 
@@ -37,3 +39,27 @@ class HangEnvState(HangEnv):
     def get_obs(self):
         obs = super().get_obs()
         return np.hstack((obs['agent']['qpos'], self.target))
+
+class FillEnvParticle(FillEnv):
+    '''
+    Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
+    '''
+    def get_obs(self):
+        obs = super().get_obs()
+
+        xyz = obs['particles']['x']
+        agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], self.beaker_x, self.beaker_y))
+
+        return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
+
+class ExcavateEnvParticle(ExcavateEnv):
+    '''
+    Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
+    '''
+    def get_obs(self):
+        obs = super().get_obs()
+
+        xyz = obs['particles']['x'][np.random.choice(range(len(obs['particles']['x'])), size=1024, replace=False)]
+        agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], np.array([(self.target_num - 250)/900.])))
+
+        return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))

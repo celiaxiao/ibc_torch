@@ -36,6 +36,40 @@ class particle_dataset(Dataset):
         act = self.experiences[idx]['action']
         return obs, act
 
+class state_dataset(Dataset):
+    '''
+    Dataset for maniskill2 softbody envs, state-based 
+    Input:
+    -- observations: only qpos of controller, and target be end pose of tcp in one episode.
+    -- actions: list of actions. index should match observations
+    '''
+    def __init__(self, observations, actions, device=None):
+        experiences = []
+        if device is None:
+            device = torch.device('cuda')
+        for idx in range(len(observations)):
+            exp = {}
+            # exp['xyz'] = torch.tensor(observations[idx][0]).to(device)
+            # exp['agent'] = torch.tensor(observations[idx][1]).to(device)
+            exp['observation'] = torch.tensor(observations[idx]).to(device)
+            exp['action'] = torch.tensor(actions[idx]).to(device)
+            experiences.append(exp)
+            # print(exp['observation'].shape)
+            # exit(0)
+            if idx == 10000:
+                break
+        self.experiences = experiences
+
+    def __len__(self):
+        return len(self.experiences)
+
+    def __getitem__(self, idx):
+        # xyz = self.experiences[idx]['xyz']
+        # agent = self.experiences[idx]['agent']
+        obs = self.experiences[idx]['observation']
+        act = self.experiences[idx]['action']
+        return obs, act
+
 def save_dataset(dataset, env_name):
     print(dataset['observations'].shape, dataset['actions'].shape) # An N x dim_observation Numpy array of observations
 
@@ -58,12 +92,12 @@ def get_action_stat(dataset, env_name):
 if __name__ == '__main__':
     # Hang-v0: ?? experience pair, xyz shape (??, 1024, 3), agent shape (??, 25), act shape (??, 8)
 
-    observations = np.load("/home/yihe/ibc_torch/work_dirs/demos/hang_obs_100traj.npy", allow_pickle=True)
-    actions = np.load("/home/yihe/ibc_torch/work_dirs/demos/hang_act_100traj.npy")
+    observations = np.load("/home/yihe/ibc_torch/work_dirs/demos/excavate_obs_100traj.npy", allow_pickle=True)
+    actions = np.load("/home/yihe/ibc_torch/work_dirs/demos/excavate_act_100traj.npy")
 
     dataset = particle_dataset(observations, actions)
     print(len(dataset))
-    torch.save(dataset, '/home/yihe/ibc_torch/work_dirs/demos/hang_10kPairs.pt')
+    torch.save(dataset, '/home/yihe/ibc_torch/work_dirs/demos/excavate_particles_10kPairs.pt')
     
 
     
