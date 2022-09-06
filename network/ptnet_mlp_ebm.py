@@ -67,6 +67,11 @@ class PTNETMLPEBM(nn.Module):
         # print("shape after pointnet", xyz.shape)
 
         # Concat [obs, act].
+        # Hack for evaluation
+        # print(type(act.device), act.device)
+        # if not act.is_cuda:
+        #     act = act.to(torch.device('cuda'))
+        # print(xyz.device, agent.device, act.device)
         x = torch.concat([xyz, agent, act], -1)
         # print("concat shape", x.shape)
         # Forward mlp.

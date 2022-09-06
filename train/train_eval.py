@@ -181,8 +181,11 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     path = 'work_dirs/policy_exp/'+exp_name+'/'
     if not os.path.exists(path):
         os.makedirs(path)
+    ckpt_path = path + 'checkpoints/'
+    if not os.path.exists(ckpt_path):
+        os.makedirs(ckpt_path)
     batch_size = 512
-    num_counter_sample = 7
+    num_counter_sample = 8
     num_policy_sample = 512
     lr = 5e-4
     act_shape = [act_dim]
@@ -245,9 +248,12 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     for epoch in tqdm.trange(num_epoch):
         for experience in iter(dataloader):
             # print("from dataloader", experience[0].size(), experience[1].size())
+            experience[0] = experience[0].to(device=device, dtype=torch.float)
             visual_embed = network_visual(experience[0][:,:1024*3].reshape((-1, 1024, 3)))
+            # visual_embed = network_visual(experience[0][:,:704*3].reshape((-1, 704, 3))) # only fill
             # print(visual_embed.shape)
             experience = (torch.concat([visual_embed, experience[0][:,1024*3:]], -1), experience[1])
+            # experience = (torch.concat([visual_embed, experience[0][:,704*3:]], -1), experience[1]) # only fill
             # print("after visual embedding", experience[0].size(), experience[1].size())
             # TODO: process pointcloud here
             loss_dict = agent.train(experience)
@@ -271,8 +277,8 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
             
         # if epoch % checkpoint_interval == 0 and epoch != 0:
         if epoch % checkpoint_interval == 0:
-            torch.save(network.state_dict(), path+'mlp_'+str(epoch)+'.pt')
-            torch.save(network_visual.state_dict(), path+'pointnet_'+str(epoch)+'.pt')
+            torch.save(network.state_dict(), ckpt_path+'mlp_'+str(epoch)+'.pt')
+            torch.save(network_visual.state_dict(), ckpt_path+'pointnet_'+str(epoch)+'.pt')
     writer.close()
 
 def train_mse(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim):
@@ -408,9 +414,21 @@ if __name__ == '__main__':
     elif task == 'Hang-v0':
         obs_dim = 512+25
         act_dim = 8
-        dataset_dir = '/home/yihe/ibc_torch/work_dirs/demos/hang_10kPairs.pt'
+        dataset_dir = '/home/yihe/ibc_torch/work_dirs/demos/hang_particles_3kPairs.pt'
         max_action = [1.0] * 8
         min_action = [-1.0] * 8
+    elif task == 'Fill-v0':
+        obs_dim = 512+16
+        act_dim = 7
+        dataset_dir = '/home/yihe/ibc_torch/work_dirs/demos/fill_particles_10kPairs.pt'
+        max_action = [1.0] * 7
+        min_action = [-1.0] * 7
+    elif task == 'Excavate-v0':
+        obs_dim = 512+15
+        act_dim = 7
+        dataset_dir = '/home/yihe/ibc_torch/work_dirs/demos/excavate_particles_10kPairs.pt'
+        max_action = [1.0] * 7
+        min_action = [-1.0] * 7
     else:
         raise ValueError("I don't recognize this task to train.")
     image_obs = False
