@@ -53,7 +53,9 @@ class IbcPolicy():
                num_action_samples=2**14,
                training = False,
                use_dfo = False,
+               dfo_iterations = 3,
                use_langevin = True,
+               langevin_iterations = 100,
                inference_langevin_noise_scale = 1.0,
                optimize_again = False,
                again_stepsize_init = 1e-1,
@@ -98,7 +100,9 @@ class IbcPolicy():
     self.max_action = torch.nn.Parameter(max_action, requires_grad=False)
     self._num_action_samples = num_action_samples
     self._use_dfo = use_dfo
+    self._dfo_iterations = dfo_iterations
     self._use_langevin = use_langevin
+    self._langevin_iterations = langevin_iterations
     self._inference_langevin_noise_scale = inference_langevin_noise_scale
     self._optimize_again = optimize_again
     self._again_stepsize_init = again_stepsize_init
@@ -172,6 +176,7 @@ class IbcPolicy():
           num_action_samples=self._num_action_samples,
           min_actions=self.min_action,
           max_actions=self.max_action,
+          num_iterations=self._dfo_iterations,
           late_fusion=self._late_fusion,)
 
     if self._use_langevin:
@@ -182,6 +187,7 @@ class IbcPolicy():
           num_action_samples=self._num_action_samples,
           min_actions=self.min_action,
           max_actions=self.max_action,
+          num_iterations=self._langevin_iterations,
           noise_scale=1.0).detach()
 
       # Run a second optimization, a trick for more precise
@@ -194,6 +200,7 @@ class IbcPolicy():
             num_action_samples=self._num_action_samples,
             min_actions=self.min_action,
             max_actions=self.max_action,
+            num_iterations=self._langevin_iterations,
             sampler_stepsize_init=self._again_stepsize_init,
             sampler_stepsize_final=self._again_stepsize_final,
             noise_scale=self._inference_langevin_noise_scale).detach()

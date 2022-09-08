@@ -44,7 +44,9 @@ class ImplicitBCAgent():
                summarize_grads_and_vars = False,
                train_step_counter = 0,
                fraction_dfo_samples=0.,
+               dfo_iterations=3,
                fraction_langevin_samples=1.0,
+               langevin_iterations=100,
                ebm_loss_type='info_nce',
                late_fusion=False,
                compute_mse=False,
@@ -66,7 +68,9 @@ class ImplicitBCAgent():
     self._optimizer = optimizer
     self._num_counter_examples = num_counter_examples
     self._fraction_dfo_samples = fraction_dfo_samples
+    self._dfo_iterations = dfo_iterations
     self._fraction_langevin_samples = fraction_langevin_samples
+    self._langevin_iterations = langevin_iterations
     assert self._fraction_dfo_samples + self._fraction_langevin_samples <= 1.0
     assert self._fraction_dfo_samples >= 0.
     assert self._fraction_langevin_samples >= 0.
@@ -306,6 +310,7 @@ class ImplicitBCAgent():
             num_action_samples=self._num_counter_examples,
             min_actions=self.min_action,
             max_actions=self.max_action,
+            num_iterations=self._dfo_iterations,
             late_fusion=self._late_fusion,)
         chain_data = None
       lang_opt_counter_example_actions = None
@@ -320,7 +325,8 @@ class ImplicitBCAgent():
             max_actions=self.max_action,
             return_chain=self._return_full_chain,
             grad_norm_type=self._grad_norm_type,
-            num_action_samples=self._num_counter_examples)
+            num_action_samples=self._num_counter_examples,
+            num_iterations=self._langevin_iterations)
         if self._return_full_chain:
           lang_opt_counter_example_actions, chain_data = langevin_return
         else:
