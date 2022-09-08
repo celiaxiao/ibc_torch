@@ -20,7 +20,9 @@ from torch.utils.data import DataLoader, Dataset
 # from data.dataset_d4rl import d4rl_dataset
 from data.dataset_maniskill import particle_dataset, state_dataset
 
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
+import wandb
+
 device = torch.device('cuda')
 
 # General exp info
@@ -84,8 +86,7 @@ flags.DEFINE_boolean('run_full_chain_under_gradient', False,
                      'run_full_chain_under_gradient')
 
 FLAGS = flags.FLAGS
-FLAGS(sys.argv) 
-writer = SummaryWriter(log_dir='./runs/'+FLAGS.exp_name)
+FLAGS(sys.argv)
 
 def load_dataset(dataset_dir):
     dataset = torch.load(dataset_dir)
@@ -109,42 +110,15 @@ def train(config):
     # Create experiment and checkpoint directory
     path = f"work_dirs/formal_exp/{config['env_name']}/{config['exp_name']}/"
     checkpoint_path = path + 'checkpoints/'
+    logging_path = path + 'wandb/'
     if not os.path.exists(path):
         os.makedirs(path)
     if not os.path.exists(checkpoint_path):
         os.makedirs(checkpoint_path)
+    if not os.path.exists(logging_path):
+        os.makedirs(logging_path)
 
     print(path, checkpoint_path)
-
-    # Agent config variables
-    # batch_size = 512
-    # num_counter_sample = 8
-    # num_policy_sample = 512
-    # lr = 5e-4
-    # act_shape = [act_dim]
-    # uniform_boundary_buffer = 0.05
-    # normalizer=None
-    # dense_layer_type='spectral_norm'
-    # rate = 0.
-    # width = 512
-    # depth = 8
-    # use_visual = True
-
-    # fraction_langevin_samples = 1.
-    # fraction_dfo_samples = 0.
-    # add_grad_penalty = True
-    # # use_dfo = False
-    # # use_langevin = True
-    # # optimize_again = True
-    # # inference_langevin_noise_scale = 0.5
-    # # again_stepsize_init = 1e-5
-    # num_epoch = int(1e4)
-    # checkpoint_interval = 50
-    # eval_interval = 50
-    # train_dfo_iterations = 3
-    # train_langevin_iterations = 100
-    # run_full_chain_under_gradient = False
-    # save_config(locals(), path)   
 
     max_action = torch.tensor(config['max_action']).float()
     min_action = torch.tensor(config['min_action']).float()
@@ -189,6 +163,10 @@ def train(config):
     assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
     assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
 
+    # prepare visualization
+    wandb.init(project=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
+
+    # main training loop
     for epoch in tqdm.trange(config['total_epochs']):
         for experience in iter(dataloader):
             # print("from dataloader", experience[0].size(), experience[1].size())
@@ -203,12 +181,11 @@ def train(config):
             # print(loss_dict)
             grad_norm, grad_max, weight_norm, weight_max = network_info(network)
             
+            wandb.log({
+                'loss':loss_dict['loss'].mean().item(),
+                'grad_norm':grad_norm
+            })
         
-            writer.add_scalar('loss/step',loss_dict['loss'].mean().item(), agent.train_step_counter)
-            writer.add_scalar('info/grad_norm',grad_norm, agent.train_step_counter)
-            writer.add_scalar('info/grad_max',grad_max, agent.train_step_counter)
-            writer.add_scalar('info/weight_norm',weight_norm, agent.train_step_counter)
-            writer.add_scalar('info/weight_max',weight_max, agent.train_step_counter)
         print(agent.train_step_counter)
 
         print("loss at epoch",epoch, loss_dict['loss'].mean().item())
@@ -217,7 +194,6 @@ def train(config):
         if epoch % config['n_checkpoint'] == 0:
             torch.save(network.state_dict(), checkpoint_path+'mlp_'+str(epoch)+'.pt')
             torch.save(network_visual.state_dict(), checkpoint_path+'pointnet_'+str(epoch)+'.pt')
-    writer.close()
 
 
 @torch.no_grad()
@@ -229,9 +205,6 @@ def network_info(network, ord=2):
     '''
     grads = [torch.norm(_.grad.detach(), ord) for _ in network.parameters() if _.requires_grad and _.grad is not None]
     grad_norm = torch.norm(torch.stack(grads), ord).item() if len(grads) > 0 else 0.0
-    # if grad_norm > 2.5:
-    #     from IPython import embed
-    #     embed()
     grad_max = torch.max(torch.stack(grads)).item() if len(grads) > 0 else 0.0
 
     weights = [torch.norm(_.detach(), ord) for _ in network.parameters()]
