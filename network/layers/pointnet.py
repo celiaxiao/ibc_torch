@@ -9,11 +9,12 @@ Ref: https://github.com/fxia22/pointnet.pytorch
 '''
 
 class pointNetLayer(nn.Module):
-    def __init__(self, out_dim=512):
+    def __init__(self, in_channel=3, out_dim=512):
         super().__init__()
+        self.in_channel=in_channel
 
         # global feature mlp
-        self.conv1 = torch.nn.Conv1d(3, 64, 1)
+        self.conv1 = torch.nn.Conv1d(in_channel, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 512, 1)
         # self.bn1 = nn.BatchNorm1d(64)
@@ -28,7 +29,7 @@ class pointNetLayer(nn.Module):
 
     def forward(self, x):
         # print(x.size())
-        assert x.size()[-1] == 3 # make sure last dim = 3
+        assert x.size()[-1] == self.in_channel # make sure last dim = 3 or 6
         x = x.transpose(2, 1)
         
         x = F.relu(self.conv1(x))
