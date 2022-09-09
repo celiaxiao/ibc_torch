@@ -18,9 +18,8 @@ from torch.utils.data import DataLoader, Dataset
 
 # from data.transform_dataset import Ibc_dataset
 # from data.dataset_d4rl import d4rl_dataset
-from data.dataset_maniskill import particle_dataset, state_dataset
+from data.dataset_maniskill import particle_dataset, state_dataset, pointcloud_dataset
 
-# from torch.utils.tensorboard import SummaryWriter
 import wandb
 
 device = torch.device('cuda')
@@ -28,21 +27,28 @@ device = torch.device('cuda')
 # General exp info
 flags.DEFINE_string('env_name', None, 'Train env name')
 flags.DEFINE_string('exp_name', 'experiment', 'the experiment name')
+flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
+flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
+flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 
 # General training config
 flags.DEFINE_integer('batch_size', 512, 'Training batch size')
 flags.DEFINE_float('lr', 5e-4, 'Initial optimizer learning rate')
-flags.DEFINE_integer('total_epochs', int(1e4), 'Total training epochs')
-flags.DEFINE_integer('n_checkpoint', 100, 'Save checkpoint every x epoch')
+flags.DEFINE_integer('total_steps', int(5e5), 'Total training steps')
+flags.DEFINE_integer('epoch_checkpoint', 200, 'Save checkpoint every x epoch')
+flags.DEFINE_integer('step_checkpoint', 5000, 
+                     'Save checkpoint every x gradient steps')
 
 # Network input dimensions
 flags.DEFINE_integer('obs_dim', 10,
                      'The (total) dimension of the observation')
 flags.DEFINE_integer('act_dim', 2,
                      'The dimension of the action.')
-flags.DEFINE_integer('visual_input_dim', None,
-                     'Dimension for visual network input (#points * 3)')
+flags.DEFINE_integer('visual_num_points', None,
+                     'Number of points as visual input')
+flags.DEFINE_integer('visual_num_channels', 3,
+                     '6 if with rgb or 3 only xyz')
 flags.DEFINE_integer('visual_output_dim', None,
                      'Dimension for visual network output')
 
@@ -131,12 +137,23 @@ def train(config):
     # prepare training network
     network_visual=None
     if config['visual_type'] == 'pointnet':
-        network_visual = pointnet.pointNetLayer(out_dim=config['visual_output_dim'])
-    network = mlp_ebm.MLPEBM(
-        (config['visual_output_dim'] + config['obs_dim'] - config['visual_input_dim'] + config['act_dim']), 1, 
+        network_visual = pointnet.pointNetLayer(in_channel=config['visual_num_channels'], out_dim=config['visual_output_dim'])
+
+        visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
+
+        network = mlp_ebm.MLPEBM(
+        (config['visual_output_dim'] + config['obs_dim'] - visual_input_dim + config['act_dim']), 1, 
         width=config['width'], depth=config['depth'],
         normalizer=config['mlp_normalizer'], rate=config['rate'],
         dense_layer_type=config['dense_layer_type']).to(device)
+    
+    else:
+        network = mlp_ebm.MLPEBM(
+        (config['obs_dim'] + config['act_dim']), 1, 
+        width=config['width'], depth=config['depth'],
+        normalizer=config['mlp_normalizer'], rate=config['rate'],
+        dense_layer_type=config['dense_layer_type']).to(device)
+
 
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=config['lr'])
@@ -156,6 +173,9 @@ def train(config):
 
     # load dataset
     dataset = load_dataset(config['dataset_dir'])
+    if config['data_amount']:
+        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
+        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
     dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
         generator=torch.Generator(device='cuda'), 
         shuffle=True)
@@ -167,15 +187,18 @@ def train(config):
     wandb.init(project=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
 
     # main training loop
-    for epoch in tqdm.trange(config['total_epochs']):
+    epoch = 0
+    while agent.train_step_counter < config['total_steps']:
         for experience in iter(dataloader):
             # print("from dataloader", experience[0].size(), experience[1].size())
 
             experience[0] = experience[0].to(device=device, dtype=torch.float)
-            visual_embed = network_visual(experience[0][:,:config['visual_input_dim']].reshape((-1, config['visual_input_dim']//3, 3)))
-            # print(visual_embed.shape)
-            experience = (torch.concat([visual_embed, experience[0][:,config['visual_input_dim']:]], -1), experience[1])
-            print("after visual embedding", experience[0].size(), experience[1].size())
+
+            if config['visual_type'] is not None:
+                visual_embed = network_visual(experience[0][:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
+                # print(visual_embed.shape)
+                experience = (torch.concat([visual_embed, experience[0][:,visual_input_dim:]], -1), experience[1])
+                print("after visual embedding", experience[0].size(), experience[1].size())
             # TODO: process pointcloud here
             loss_dict = agent.train(experience)
             # print(loss_dict)
@@ -185,15 +208,19 @@ def train(config):
                 'loss':loss_dict['loss'].mean().item(),
                 'grad_norm':grad_norm
             })
+
+            if agent.train_step_counter % config['step_checkpoint'] == 0:
+                torch.save(network.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'mlp.pt')
+                torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'pointnet.pt')
+        
+        epoch += 1
         
         print(agent.train_step_counter)
-
-        print("loss at epoch",epoch, loss_dict['loss'].mean().item())
+        print("loss at epoch", epoch, loss_dict['loss'].mean().item())
             
-        # if epoch % checkpoint_interval == 0 and epoch != 0:
-        if epoch % config['n_checkpoint'] == 0:
-            torch.save(network.state_dict(), checkpoint_path+'mlp_'+str(epoch)+'.pt')
-            torch.save(network_visual.state_dict(), checkpoint_path+'pointnet_'+str(epoch)+'.pt')
+        if epoch % config['epoch_checkpoint'] == 0:
+            torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'mlp.pt')
+            torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'pointnet.pt')
 
 
 @torch.no_grad()
