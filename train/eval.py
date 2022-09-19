@@ -21,7 +21,7 @@ device = torch.device('cuda')
 
 # General exp info
 flags.DEFINE_string('env_name', None, 'Train env name')
-flags.DEFINE_string('exp_name', 'experiment', 'the experiment name')
+flags.DEFINE_string('exp_name', None, 'the experiment name')
 flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
 flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
 flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
@@ -218,7 +218,7 @@ class Evaluation:
 
         for idx in range(self.config['num_episodes']):
             self.episode_id = idx
-            seed = np.random.randint(low=500, high=600)
+            seed = np.random.randint(low=5000, high=6000)
             total_reward, reach_TimeLimit, num_steps = self.run_single_episode(video_path=f"{eval_info_path}videos/{idx}",seed=seed)
             self.eval_info.append([seed, total_reward, reach_TimeLimit, num_steps])
 
@@ -308,52 +308,6 @@ class Evaluation:
     def animate(self, imgs, fps=20, path="animate.mp4"):
         imgs = ImageSequenceClip(imgs, fps=fps)
         imgs.write_videofile(path, fps=fps)
-
-# def main_eval():
-
-#     torch.set_default_tensor_type(torch.cuda.FloatTensor)
-
-#     config = FLAGS.flag_values_dict()
-#     print(config)
-
-
-#     # Create evaluation env(s)
-#     if args.env_name == "Hang-v0":
-#         env = HangEnvParticle()
-#         input_dim = 512+25+8
-#     elif args.env_name == "Fill-v0":
-#         env = FillEnvParticle()
-#         input_dim = 512+16+7
-#     elif args.env_name == "Excavate-v0":
-#         env = ExcavateEnvParticle()
-#         input_dim = 512+15+7
-#     else:
-#         print("No available evaluation for environment", args.env_name)
-#         exit(0)
-
-#     # env = HangEnvState(target_file='/home/yihe/ibc_torch/work_dirs/demos/hang_state_test_target.npy')
-#     print("env observation shape:", env.get_obs().shape)
-
-#     # agent_cfg = json.load(open('/home/yihe/ibc_torch/work_dirs/policy_exp/state-100lag/config.json'))
-#     agent_cfg = json.load(open('/home/yihe/ibc_torch/work_dirs/policy_exp/' + args.env_name + '/visual_10k_100lag/config.json'))
-
-#     # network_backbone = ptnet_mlp_ebm.PTNETMLPEBM(xyz_input_dim=1024, agent_input_dim=25, act_input_dim=8, out_dim=1)
-#     network_backbone = mlp_ebm.MLPEBM(input_dim, 1, width=512, depth=8, normalizer=None, rate=0., dense_layer_type='spectral_norm') #Hang
-#     visual_backbone = pointnet.pointNetLayer(out_dim=512)
-
-#     eval = Evaluation(
-#         env=env, 
-#         network_backbone=network_backbone,
-#         visual_backbone=visual_backbone,
-#         network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Excavate-v0/visual_10k_100lag/checkpoints/mlp_3000.pt',
-#         visual_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Excavate-v0/visual_10k_100lag/checkpoints/pointnet_3000.pt',
-#         # network_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Fill-v0/visual_10k_100lag/checkpoints/mlp_3000.pt',
-#         # visual_ckpt='/home/yihe/ibc_torch/work_dirs/policy_exp/Fill-v0/visual_10k_100lag/checkpoints/pointnet_3000.pt',
-#         agent_cfg=agent_cfg,
-#         eval_cfg=None
-#         )
-
-#     eval.run_eval()
 
 
 if __name__ == "__main__":
