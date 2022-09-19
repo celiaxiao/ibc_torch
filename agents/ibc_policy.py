@@ -121,7 +121,7 @@ class IbcPolicy():
   def act(self, time_step):
     # time_step: dict{'observations'}
     distribution = self._distribution(time_step=time_step)
-    sample = distribution.sample()
+    sample = distribution.sample([time_step['observations'].shape[0]])
     return sample
     
   def eval(self, time_step):
@@ -220,6 +220,7 @@ class IbcPolicy():
     # Use first observation to figure out batch/time sizes as they should be the
     # same across all observations.
     action_samples, probs = self._probs(time_step)
+    # print("action samples.shape", action_samples.shape, "probs shape", probs.shape)
     # Make a distribution for sampling.
     distribution = MappedCategorical(
         action_spec=self._action_spec, probs=probs, mapped_values=action_samples)

@@ -1,8 +1,6 @@
-from audioop import maxpp
 import os
 import sys
 from absl import flags
-from absl import logging
 
 from agents import ibc_agent
 from agents.utils import save_config, tile_batch, get_sampling_spec
@@ -18,7 +16,7 @@ from torch.utils.data import DataLoader, Dataset
 
 # from data.transform_dataset import Ibc_dataset
 # from data.dataset_d4rl import d4rl_dataset
-from data.dataset_maniskill import particle_dataset, state_dataset, pointcloud_dataset
+from data.dataset_maniskill import *
 
 import wandb
 
@@ -184,24 +182,20 @@ def train(config):
     assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
 
     # prepare visualization
-    wandb.init(project=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
+    wandb.init(project='ibc', name=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
 
     # main training loop
     epoch = 0
     while agent.train_step_counter < config['total_steps']:
         for experience in iter(dataloader):
-            # print("from dataloader", experience[0].size(), experience[1].size())
 
             experience[0] = experience[0].to(device=device, dtype=torch.float)
 
             if config['visual_type'] is not None:
                 visual_embed = network_visual(experience[0][:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
-                # print(visual_embed.shape)
                 experience = (torch.concat([visual_embed, experience[0][:,visual_input_dim:]], -1), experience[1])
-                print("after visual embedding", experience[0].size(), experience[1].size())
-            # TODO: process pointcloud here
+
             loss_dict = agent.train(experience)
-            # print(loss_dict)
             grad_norm, grad_max, weight_norm, weight_max = network_info(network)
             
             wandb.log({
@@ -210,8 +204,8 @@ def train(config):
             })
 
             if agent.train_step_counter % config['step_checkpoint'] == 0:
-                torch.save(network.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'mlp.pt')
-                torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'pointnet.pt')
+                torch.save(network.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'_mlp.pt')
+                torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'_pointnet.pt')
         
         epoch += 1
         
@@ -219,8 +213,8 @@ def train(config):
         print("loss at epoch", epoch, loss_dict['loss'].mean().item())
             
         if epoch % config['epoch_checkpoint'] == 0:
-            torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'mlp.pt')
-            torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'pointnet.pt')
+            torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_mlp.pt')
+            torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_pointnet.pt')
 
 
 @torch.no_grad()
