@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 class particle_dataset(Dataset):
     '''
-    Dataset for maniskill2 softbody envs, particles obs mode
+    Dataset for maniskill2 softbody envs, particles obs mode that needs manual concatenation for pointcloud and agent
     Input:
     -- observations: list of (xyz, agent) pairs. xyz should already be downsampled, agent should be pad to 1d array
     -- actions: list of actions. index should match observations
@@ -22,8 +22,6 @@ class particle_dataset(Dataset):
             experiences.append(exp)
             # print(exp['observation'].shape)
             # exit(0)
-            if idx == 10000:
-                break
         self.experiences = experiences
 
     def __len__(self):
@@ -56,8 +54,6 @@ class state_dataset(Dataset):
             experiences.append(exp)
             # print(exp['observation'].shape)
             # exit(0)
-            if idx == 10000:
-                break
         self.experiences = experiences
 
     def __len__(self):
@@ -70,9 +66,9 @@ class state_dataset(Dataset):
         act = self.experiences[idx]['action']
         return obs, act
 
-class pointcloud_dataset(Dataset):
+class maniskill_dataset(Dataset):
     '''
-    Dataset for maniskill2 softbody envs, pointcloud obs mode
+    Dataset for maniskill2 softbody envs, no post processing needed
     Input:
     -- observations: list of observations. Need to be pre-processed to 1d. Visual components first.
     -- actions: list of actions. index should match observations
