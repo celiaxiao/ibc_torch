@@ -132,6 +132,16 @@ def eval(exp_name, epoch, image_obs, task, goal_tolerance, obs_dim, act_dim, min
     env_name_clean = env_name.replace('/', '_')
     
     policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
+    video_module.make_video(
+                policy,
+                eval_env,
+                path,
+                step=np.array(epoch)) # agent.train_step)
+    # video_module.make_video(
+    #             policy,
+    #             eval_env,
+    #             path,
+    #             step=np.array(epoch+1)) # agent.train_step)
     logging.info('Evaluating', epoch)
     eval_actor, success_metric = eval_actor_module.get_eval_actor(
                             policy,
@@ -175,7 +185,7 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
     path = 'tests/policy_exp/'+exp_name+'/'
     if not os.path.exists(path):
         os.makedirs(path)
-    batch_size = 512
+    batch_size = 128
     num_counter_sample = 8
     num_policy_sample = 512
     lr = 5e-4
@@ -221,23 +231,23 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, 
         return_full_chain=False, run_full_chain_under_gradient=run_full_chain_under_gradient)
     # policy for evaluation
-    ibc_policy = IbcPolicy( actor_network = network,
-        action_spec= int(act_shape[0]), #hardcode
-        min_action = min_action, 
-        max_action = max_action,
-        num_action_samples=num_policy_sample,
-        use_dfo=use_dfo,
-        use_langevin=use_langevin,
-        optimize_again=optimize_again,
-        inference_langevin_noise_scale=inference_langevin_noise_scale,
-        again_stepsize_init=again_stepsize_init
-    )
-    env_name = eval_env_module.get_env_name(task, False,
-                                            image_obs)
-    print(('Got env name:', env_name))
-    eval_env = eval_env_module.get_eval_env(
-        env_name, 1, goal_tolerance, 1)
-    env_name_clean = env_name.replace('/', '_')
+    # ibc_policy = IbcPolicy( actor_network = network,
+    #     action_spec= int(act_shape[0]), #hardcode
+    #     min_action = min_action, 
+    #     max_action = max_action,
+    #     num_action_samples=num_policy_sample,
+    #     use_dfo=use_dfo,
+    #     use_langevin=use_langevin,
+    #     optimize_again=optimize_again,
+    #     inference_langevin_noise_scale=inference_langevin_noise_scale,
+    #     again_stepsize_init=again_stepsize_init
+    # )
+    # env_name = eval_env_module.get_env_name(task, False,
+    #                                         image_obs)
+    # print(('Got env name:', env_name))
+    # eval_env = eval_env_module.get_eval_env(
+    #     env_name, 1, goal_tolerance, 1)
+    # env_name_clean = env_name.replace('/', '_')
     # policy_eval.evaluate(5, task, False, False, False, 
     #             static_policy=ibc_policy, video=False,
     #             writer=writer, epoch=100)
@@ -255,34 +265,34 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         if epoch % eval_interval == 0 :
             print("loss at epoch",epoch, loss_dict['loss'].sum().item())
             # evaluate
-            policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
-            video_module.make_video(
-                policy,
-                eval_env,
-                path,
-                step=np.array(epoch)) # agent.train_step)
-            logging.info('Evaluating epoch', epoch)
-            eval_actor, success_metric = eval_actor_module.get_eval_actor(
-                                    policy,
-                                    env_name,
-                                    eval_env,
-                                    epoch,
-                                    eval_episodes,
-                                    path,
-                                    viz_img=False,
-                                    summary_dir_suffix=env_name_clean)
+            # policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
+            # video_module.make_video(
+            #     policy,
+            #     eval_env,
+            #     path,
+            #     step=np.array(epoch)) # agent.train_step)
+            # logging.info('Evaluating epoch', epoch)
+            # eval_actor, success_metric = eval_actor_module.get_eval_actor(
+            #                         policy,
+            #                         env_name,
+            #                         eval_env,
+            #                         epoch,
+            #                         eval_episodes,
+            #                         path,
+            #                         viz_img=False,
+            #                         summary_dir_suffix=env_name_clean)
            
-            metrics = evaluation_step(
-                eval_episodes,
-                eval_env,
-                eval_actor,
-                name_scope_suffix=f'_{env_name}')
-            for m in metrics:
-                writer.add_scalar(m.name, m.result(), epoch)
-            logging.info('Done evaluation')
-            log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
-            logging.info('\n\t\t '.join(log))
-            print("evaluation at epoch", epoch, "\n", log)
+            # metrics = evaluation_step(
+            #     eval_episodes,
+            #     eval_env,
+            #     eval_actor,
+            #     name_scope_suffix=f'_{env_name}')
+            # for m in metrics:
+            #     writer.add_scalar(m.name, m.result(), epoch)
+            # logging.info('Done evaluation')
+            # log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
+            # logging.info('\n\t\t '.join(log))
+            # print("evaluation at epoch", epoch, "\n", log)
             
         if epoch % checkpoint_interval == 0 and epoch != 0:
             torch.save(network.state_dict(), path+str(epoch)+'.pt')
@@ -398,6 +408,12 @@ if __name__ == '__main__':
             action_stat = np.load(f, allow_pickle=True).item()
             max_action = action_stat['max']
             min_action = action_stat['min']
+    elif task == 'Hang-v0':
+        obs_dim = 6144
+        act_dim = 8
+        dataset_dir = '/home/yihe/ibc_torch/work_dirs/demo/hang-test.pt'
+        max_action = [1.0] * 8
+        min_action = [-1.0] * 8
     else:
         raise ValueError("I don't recognize this task to train.")
     image_obs = False
