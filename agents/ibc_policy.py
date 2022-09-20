@@ -26,7 +26,7 @@ class MappedCategorical(torch.distributions.Categorical):
             should be passed in.
         mapped_values: Values that map to each category.
         """
-        self.action_shape = torch.Size([action_spec])
+        self.action_shape = torch.Size(action_spec)
         self._mapped_values = mapped_values
         super(MappedCategorical, self).__init__(
             logits=logits,
@@ -211,8 +211,14 @@ class IbcPolicy():
   def _distribution(self, time_step):
     # Use first observation to figure out batch/time sizes as they should be the
     # same across all observations.
+    # action_sample shape [num_policy_sample*batch_size, act_dim]
+    # probs shape [num_policy_sample*batch_size]
     action_samples, probs = self._probs(time_step)
     # Make a distribution for sampling.
     distribution = MappedCategorical(
         action_spec=self._action_spec, probs=probs, mapped_values=action_samples)
     return distribution
+
+if __name__ == '__main__':
+  obs = torch.rand((10,20))
+  _distribution()
