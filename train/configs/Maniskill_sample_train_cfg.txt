@@ -1,0 +1,17 @@
+# Sample config file for maniskill hang pointcloud obs mode
+
+# General exp info
+--env_name=Hang-v0
+--control_mode=pd_joint_delta_pos
+--obs_mode=particles
+--dataset_dir=
+
+# Network input dimensions
+--obs_dim=3097
+--act_dim=8
+--visual_num_points=1024
+--visual_num_channels=3
+--visual_output_dim=512
+
+# Visual network configs
+--visual_type=pointnet
