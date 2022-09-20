@@ -16,3 +16,5 @@ data/*
 test/*
 !test/*.py
 runs
+
+*.pt
