@@ -16,5 +16,6 @@ data/*
 test/*
 !test/*.py
 runs
-
+work_dirs/*
+train/configs/*
 *.pt

@@ -7,10 +7,10 @@ from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
 from network import mlp_ebm, ptnet_mlp_ebm
 from network.layers import pointnet
-from environments.maniskill.maniskill_env import HangEnvParticle, HangEnvState, FillEnvParticle, ExcavateEnvParticle
+from environments.maniskill.maniskill_env import *
 
 from torch.utils.data import DataLoader, Dataset
-from data.dataset_maniskill import particle_dataset, state_dataset, pointcloud_dataset
+from data.dataset_maniskill import *
 import torch
 import numpy as np
 import tqdm
@@ -295,7 +295,7 @@ class Evaluation:
                 visual_embed = self.network_visual(obs[:,:visual_input_dim].reshape((-1, self.config['visual_num_points'], config['visual_num_channels'])))
                 obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
 
-            print(obs.shape, act_gt.shape)
+            # print(obs.shape, act_gt.shape)
 
             act_pred = self.ibc_policy.act({'observations':obs})
 
