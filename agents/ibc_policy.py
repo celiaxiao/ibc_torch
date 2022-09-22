@@ -26,7 +26,7 @@ class MappedCategorical(torch.distributions.Categorical):
             should be passed in.
         mapped_values: Values that map to each category.
         """
-        self.action_shape = torch.Size(action_spec)
+        self.action_shape = torch.Size([action_spec])
         self._mapped_values = mapped_values
         super(MappedCategorical, self).__init__(
             logits=logits,
