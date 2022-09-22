@@ -13,7 +13,8 @@ install_requires = [
     'gin',
     'tf_agents',
     'pybullet',
-    'tensorflow_datasets'
+    'tensorflow_datasets',
+    'moviepy'
 
 ]
 
