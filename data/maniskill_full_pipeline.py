@@ -51,7 +51,6 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
             target_env.step(action)
 
         print(f'finished {episode_id}, success status {target_env.evaluate()}')
-        break
 
     np.save(f'{raw_data_path}/{prefix}_observations.npy', all_obs)
     np.save(f'{raw_data_path}/{prefix}_actions.npy', all_actions)

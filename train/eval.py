@@ -7,10 +7,10 @@ from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
 from network import mlp_ebm, ptnet_mlp_ebm
 from network.layers import pointnet
-from environments.maniskill.maniskill_env import HangEnvParticle, HangEnvState, FillEnvParticle, ExcavateEnvParticle
+from environments.maniskill.maniskill_env import *
 
 from torch.utils.data import DataLoader, Dataset
-from data.dataset_maniskill import particle_dataset, state_dataset, pointcloud_dataset
+from data.dataset_maniskill import *
 import torch
 import numpy as np
 import tqdm
@@ -21,7 +21,8 @@ device = torch.device('cuda')
 
 # General exp info
 flags.DEFINE_string('env_name', None, 'Train env name')
-flags.DEFINE_string('exp_name', None, 'the experiment name')
+flags.DEFINE_string('train_exp_name', None, 'the training experiment name')
+flags.DEFINE_string('eval_exp_name', None, 'the evaluation experiment name')
 flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
 flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
 flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
@@ -104,14 +105,13 @@ class Evaluation:
         # Create ibc policy to evaluate
         self.ibc_policy = self.create_policy()
 
-        self.episode_id = 0
-        self.eval_info = []
-
         # Create evaluation config -- TODO: read from eval_cfg
-        self.num_episodes = 1
         self.save_video = True
         self.episode_id = 0
-        self.eval_info = []
+        self.eval_info = {}
+        self.eval_info_path = f"work_dirs/formal_exp/{self.config['env_name']}/{self.config['train_exp_name']}/eval/{self.config['eval_step']}_{self.config['eval_exp_name']}/"
+        if not os.path.exists(self.eval_info_path):
+            os.makedirs(self.eval_info_path)
 
     def create_env(self):
         # manually select env to create
@@ -162,7 +162,7 @@ class Evaluation:
             normalizer=config['mlp_normalizer'], rate=config['rate'],
             dense_layer_type=config['dense_layer_type']).to(device)
 
-        checkpoint_path = f"work_dirs/formal_exp/{config['env_name']}/{config['exp_name']}/checkpoints/"
+        checkpoint_path = f"work_dirs/formal_exp/{config['env_name']}/{config['train_exp_name']}/checkpoints/"
 
         if config['eval_step'] is not None:
             if network_visual is not None:
@@ -210,19 +210,22 @@ class Evaluation:
         '''
         Main eval loop. 
         '''
-        eval_info_path = f"work_dirs/formal_exp/{self.config['env_name']}/{self.config['exp_name']}/eval/"
-        if not os.path.exists(eval_info_path):
-            os.makedirs(eval_info_path)
-        if not os.path.exists(eval_info_path+'videos/'):
-            os.makedirs(eval_info_path+'videos/')
+        if not os.path.exists(self.eval_info_path+'videos/'):
+            os.makedirs(self.eval_info_path+'videos/')
 
         for idx in range(self.config['num_episodes']):
             self.episode_id = idx
             seed = np.random.randint(low=5000, high=6000)
-            total_reward, reach_TimeLimit, num_steps = self.run_single_episode(video_path=f"{eval_info_path}videos/{idx}",seed=seed)
-            self.eval_info.append([seed, total_reward, reach_TimeLimit, num_steps])
+            total_reward, success, num_steps = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
+            self.eval_info[f'eval_traj_{idx}'] = {
+                'seed':seed, 'total_reward':total_reward,
+                'success':success, 'num_steps':num_steps
+            }
 
-        np.save(eval_info_path+'eval_info.npy', self.eval_info)
+        with open(f"{self.eval_info_path}traj_info.json", 'w') as f:
+            json.dump(self.eval_info, f, indent=4)
+
+        # np.save(eval_info_path+'eval_info.npy', self.eval_info)
 
     
     def run_single_episode(self, video_path, seed=2):
@@ -268,41 +271,73 @@ class Evaluation:
         
         self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
-        return total_reward, not done, num_steps
+        return total_reward, success, num_steps
 
     def compute_mse(self):
         '''
         compute the average mse error between demo and policy prediction.
         '''
+
+        # Load dataset and split into training and validation
         dataset = torch.load(self.config['dataset_dir'])
         if self.config['data_amount']:
             assert self.config['data_amount'] <= len(dataset), f"Not enough data for {self.config['data_amount']} pairs!"
-            dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount']))
+            train_dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount']))
+            validate_dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount'], len(dataset)))
+        else:
+            train_dataset = dataset
+            validate_dataset = None
 
-        dataset = torch.utils.data.Subset(dataset, np.random.choice(range(len(dataset)), size=100))
-        print(len(dataset))
-        dataloader = DataLoader(dataset, batch_size=10, 
+        train_dataset = torch.utils.data.Subset(train_dataset, np.random.choice(range(len(train_dataset)), size=200))
+        if validate_dataset and len(validate_dataset) > 200:
+            validate_dataset = torch.utils.data.Subset(validate_dataset, np.random.choice(range(len(validate_dataset)), size=200))
+        # print(len(dataset))
+        train_dataloader = DataLoader(train_dataset, batch_size=10, 
             generator=torch.Generator(device='cuda'), 
             shuffle=True)
+        if validate_dataset:
+            validate_dataloader = DataLoader(validate_dataset, batch_size=10, 
+            generator=torch.Generator(device='cuda'), 
+            shuffle=True)  
 
+
+        # Compute mse loss on training dataset
         loss_fn = torch.nn.MSELoss(reduction='mean')
-        mse_loss = []
+        train_mse_loss = []
 
-        for obs, act_gt in iter(dataloader):
+        for obs, act_gt in iter(train_dataloader):
             obs = obs.to(device=device, dtype=torch.float)
             if self.network_visual is not None:
                 visual_input_dim = self.config['visual_num_points'] * self.config['visual_num_channels']
                 visual_embed = self.network_visual(obs[:,:visual_input_dim].reshape((-1, self.config['visual_num_points'], config['visual_num_channels'])))
                 obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
 
-            print(obs.shape, act_gt.shape)
-
             act_pred = self.ibc_policy.act({'observations':obs})
 
-            # print(loss_fn(act_gt, act_pred).item())
-            mse_loss.append(loss_fn(act_gt, act_pred).item())
+            train_mse_loss.append(loss_fn(act_gt, act_pred).item())
+
+
+        # Compute mse loss on validation dataset
+        if validate_dataset:
+            validate_mse_loss = []
+
+            for obs, act_gt in iter(validate_dataloader):
+                obs = obs.to(device=device, dtype=torch.float)
+                if self.network_visual is not None:
+                    visual_input_dim = self.config['visual_num_points'] * self.config['visual_num_channels']
+                    visual_embed = self.network_visual(obs[:,:visual_input_dim].reshape((-1, self.config['visual_num_points'], config['visual_num_channels'])))
+                    obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
+
+                act_pred = self.ibc_policy.act({'observations':obs})
+
+                # print(loss_fn(act_gt, act_pred).item())
+                validate_mse_loss.append(loss_fn(act_gt, act_pred).item())
         
-        print("average mse loss: ", np.mean(mse_loss))
+        with open(f"{self.eval_info_path}mse_info.json", 'w') as f:
+            if validate_dataset:
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': np.mean(validate_mse_loss)}, f, indent=4)
+            else:
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': None}, f, indent=4)
 
 
     def animate(self, imgs, fps=20, path="animate.mp4"):
