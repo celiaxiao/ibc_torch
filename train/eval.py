@@ -1,5 +1,6 @@
-from multiprocessing import reduction
 import os
+from multiprocessing import reduction
+
 import sys
 from absl import flags
 
@@ -21,13 +22,16 @@ device = torch.device('cuda')
 
 # General exp info
 flags.DEFINE_string('env_name', None, 'Train env name')
-flags.DEFINE_string('exp_name', None, 'the experiment name')
+flags.DEFINE_string('train_exp_name', None, 'the training experiment name')
+flags.DEFINE_string('eval_exp_name', None, 'the evaluation experiment name')
 flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
 flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
 flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
 flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
+flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
+
 
 # General eval info
 flags.DEFINE_integer('num_episodes', 1, 'number of new seed episodes')
@@ -104,14 +108,13 @@ class Evaluation:
         # Create ibc policy to evaluate
         self.ibc_policy = self.create_policy()
 
-        self.episode_id = 0
-        self.eval_info = []
-
         # Create evaluation config -- TODO: read from eval_cfg
-        self.num_episodes = 1
         self.save_video = True
         self.episode_id = 0
-        self.eval_info = []
+        self.eval_info = {}
+        self.eval_info_path = f"work_dirs/formal_exp/{self.config['env_name']}/{self.config['train_exp_name']}/eval/{self.config['eval_step']}_{self.config['eval_exp_name']}/"
+        if not os.path.exists(self.eval_info_path):
+            os.makedirs(self.eval_info_path)
 
     def create_env(self):
         # manually select env to create
@@ -162,7 +165,7 @@ class Evaluation:
             normalizer=config['mlp_normalizer'], rate=config['rate'],
             dense_layer_type=config['dense_layer_type']).to(device)
 
-        checkpoint_path = f"work_dirs/formal_exp/{config['env_name']}/{config['exp_name']}/checkpoints/"
+        checkpoint_path = f"work_dirs/formal_exp/{config['env_name']}/{config['train_exp_name']}/checkpoints/"
 
         if config['eval_step'] is not None:
             if network_visual is not None:
@@ -210,19 +213,35 @@ class Evaluation:
         '''
         Main eval loop. 
         '''
-        eval_info_path = f"work_dirs/formal_exp/{self.config['env_name']}/{self.config['exp_name']}/eval/"
-        if not os.path.exists(eval_info_path):
-            os.makedirs(eval_info_path)
-        if not os.path.exists(eval_info_path+'videos/'):
-            os.makedirs(eval_info_path+'videos/')
-
+        if not os.path.exists(self.eval_info_path+'videos/'):
+            os.makedirs(self.eval_info_path+'videos/')
+        known_seed = [3,7,8,9,10]
+        rewards_info = np.zeros(self.config['num_episodes'])
+        shifted_rewards_info = np.zeros(self.config['num_episodes'])
+        success_info = np.zeros(self.config['num_episodes'])
         for idx in range(self.config['num_episodes']):
             self.episode_id = idx
             seed = np.random.randint(low=5000, high=6000)
-            total_reward, reach_TimeLimit, num_steps = self.run_single_episode(video_path=f"{eval_info_path}videos/{idx}",seed=seed)
-            self.eval_info.append([seed, total_reward, reach_TimeLimit, num_steps])
+            # seed = known_seed[idx]
+            total_reward, success, num_steps, shifted_reward = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
+            self.eval_info[f'eval_traj_{idx}'] = {
+                'seed':seed, 'total_reward':total_reward,
+                'success':success, 'num_steps':num_steps
+            }
+            rewards_info[idx] = total_reward
+            shifted_rewards_info[idx] = shifted_reward
+            success_info[idx] = success
+        self.eval_info[f'summary'] = {
+                'success_rate':success_info.mean(), 'success_std': success_info.std(),
+                'avg_rewards':rewards_info.mean(),  'max_rewards': rewards_info.max(),
+                'min_rewards': rewards_info.min(), 'max_shifted_rewards': shifted_rewards_info.max(),
+                'min_shifted_rewards': shifted_rewards_info.min(),
+            }
 
-        np.save(eval_info_path+'eval_info.npy', self.eval_info)
+        with open(f"{self.eval_info_path}traj_info.json", 'w') as f:
+            json.dump(self.eval_info, f, indent=4)
+
+        # np.save(eval_info_path+'eval_info.npy', self.eval_info)
 
     
     def run_single_episode(self, video_path, seed=2):
@@ -234,9 +253,10 @@ class Evaluation:
         done = False
         success = False
         imgs = [self.env.render("rgb_array")]
+        shifted_reward = 0
         
         # for num_steps in range(len(self.env._max_episode_steps)):
-        for num_steps in range(self.config['max_episode_steps']):
+        for num_steps in range(1,self.config['max_episode_steps']+1):
             if done:
                 success = True
                 break
@@ -264,31 +284,46 @@ class Evaluation:
 
             # save info and update steps
             total_reward += rew
+            shifted_reward += rew - self.config['single_step_max_reward']
             imgs.append(self.env.render("rgb_array"))
         
         self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
-        return total_reward, not done, num_steps
+        return total_reward, success, num_steps, shifted_reward
 
     def compute_mse(self):
         '''
         compute the average mse error between demo and policy prediction.
         '''
+
+        # Load dataset and split into training and validation
         dataset = torch.load(self.config['dataset_dir'])
         if self.config['data_amount']:
             assert self.config['data_amount'] <= len(dataset), f"Not enough data for {self.config['data_amount']} pairs!"
-            dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount']))
+            train_dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount']))
+            validate_dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount'], len(dataset)))
+        else:
+            train_dataset = dataset
+            validate_dataset = None
 
-        dataset = torch.utils.data.Subset(dataset, np.random.choice(range(len(dataset)), size=100))
-        print(len(dataset))
-        dataloader = DataLoader(dataset, batch_size=10, 
+        train_dataset = torch.utils.data.Subset(train_dataset, np.random.choice(range(len(train_dataset)), size=200))
+        if validate_dataset and len(validate_dataset) > 200:
+            validate_dataset = torch.utils.data.Subset(validate_dataset, np.random.choice(range(len(validate_dataset)), size=200))
+        # print(len(dataset))
+        train_dataloader = DataLoader(train_dataset, batch_size=10, 
             generator=torch.Generator(device='cuda'), 
             shuffle=True)
+        if validate_dataset:
+            validate_dataloader = DataLoader(validate_dataset, batch_size=10, 
+            generator=torch.Generator(device='cuda'), 
+            shuffle=True)  
 
+
+        # Compute mse loss on training dataset
         loss_fn = torch.nn.MSELoss(reduction='mean')
-        mse_loss = []
+        train_mse_loss = []
 
-        for obs, act_gt in iter(dataloader):
+        for obs, act_gt in iter(train_dataloader):
             obs = obs.to(device=device, dtype=torch.float)
             if self.network_visual is not None:
                 visual_input_dim = self.config['visual_num_points'] * self.config['visual_num_channels']
@@ -299,10 +334,30 @@ class Evaluation:
 
             act_pred = self.ibc_policy.act({'observations':obs})
 
-            # print(loss_fn(act_gt, act_pred).item())
-            mse_loss.append(loss_fn(act_gt, act_pred).item())
+            train_mse_loss.append(loss_fn(act_gt, act_pred).item())
+
+
+        # Compute mse loss on validation dataset
+        if validate_dataset:
+            validate_mse_loss = []
+
+            for obs, act_gt in iter(validate_dataloader):
+                obs = obs.to(device=device, dtype=torch.float)
+                if self.network_visual is not None:
+                    visual_input_dim = self.config['visual_num_points'] * self.config['visual_num_channels']
+                    visual_embed = self.network_visual(obs[:,:visual_input_dim].reshape((-1, self.config['visual_num_points'], config['visual_num_channels'])))
+                    obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
+
+                act_pred = self.ibc_policy.act({'observations':obs})
+
+                # print(loss_fn(act_gt, act_pred).item())
+                validate_mse_loss.append(loss_fn(act_gt, act_pred).item())
         
-        print("average mse loss: ", np.mean(mse_loss))
+        with open(f"{self.eval_info_path}mse_info.json", 'w') as f:
+            if validate_dataset:
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': np.mean(validate_mse_loss)}, f, indent=4)
+            else:
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': None}, f, indent=4)
 
 
     def animate(self, imgs, fps=20, path="animate.mp4"):
