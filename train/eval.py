@@ -232,7 +232,7 @@ class Evaluation:
             shifted_rewards_info[idx] = shifted_reward
             success_info[idx] = success
         self.eval_info[f'summary'] = {
-                'success_rate':success_info.mean(), 'success_std': success_info.std(),
+                'success_rate':success_info.mean(), 
                 'avg_rewards':rewards_info.mean(),  'max_rewards': rewards_info.max(),
                 'min_rewards': rewards_info.min(), 'max_shifted_rewards': shifted_rewards_info.max(),
                 'min_shifted_rewards': shifted_rewards_info.min(),
