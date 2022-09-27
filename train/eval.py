@@ -1,5 +1,6 @@
-from multiprocessing import reduction
 import os
+from multiprocessing import reduction
+
 import sys
 from absl import flags
 
@@ -29,6 +30,8 @@ flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
 flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
+flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
+
 
 # General eval info
 flags.DEFINE_integer('num_episodes', 1, 'number of new seed episodes')
@@ -212,15 +215,27 @@ class Evaluation:
         '''
         if not os.path.exists(self.eval_info_path+'videos/'):
             os.makedirs(self.eval_info_path+'videos/')
-
+        known_seed = [3,7,8,9,10]
+        rewards_info = np.zeros(self.config['num_episodes'])
+        shifted_rewards_info = np.zeros(self.config['num_episodes'])
+        success_info = np.zeros(self.config['num_episodes'])
         for idx in range(self.config['num_episodes']):
             self.episode_id = idx
             seed = np.random.randint(low=5000, high=6000)
-            total_reward, success, num_steps = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
-            print(f'eval_traj_{idx}:', total_reward, success, num_steps)
+            # seed = known_seed[idx]
+            total_reward, success, num_steps, shifted_reward = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
             self.eval_info[f'eval_traj_{idx}'] = {
                 'seed':seed, 'total_reward':total_reward,
                 'success':success, 'num_steps':num_steps
+            }
+            rewards_info[idx] = total_reward
+            shifted_rewards_info[idx] = shifted_reward
+            success_info[idx] = success
+        self.eval_info[f'summary'] = {
+                'success_rate':success_info.mean(), 
+                'avg_rewards':rewards_info.mean(),  'max_rewards': rewards_info.max(),
+                'min_rewards': rewards_info.min(), 'max_shifted_rewards': shifted_rewards_info.max(),
+                'min_shifted_rewards': shifted_rewards_info.min(),
             }
 
         with open(f"{self.eval_info_path}traj_info.json", 'w') as f:
@@ -238,9 +253,10 @@ class Evaluation:
         done = False
         success = False
         imgs = [self.env.render("rgb_array")]
+        shifted_reward = 0
         
         # for num_steps in range(len(self.env._max_episode_steps)):
-        for num_steps in range(self.config['max_episode_steps']):
+        for num_steps in range(1,self.config['max_episode_steps']+1):
             if done:
                 success = True
                 break
@@ -268,11 +284,12 @@ class Evaluation:
 
             # save info and update steps
             total_reward += rew
+            shifted_reward += rew - self.config['single_step_max_reward']
             imgs.append(self.env.render("rgb_array"))
         
         self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
-        return total_reward, success, num_steps
+        return total_reward, success, num_steps, shifted_reward
 
     def compute_mse(self):
         '''
@@ -312,6 +329,8 @@ class Evaluation:
                 visual_input_dim = self.config['visual_num_points'] * self.config['visual_num_channels']
                 visual_embed = self.network_visual(obs[:,:visual_input_dim].reshape((-1, self.config['visual_num_points'], config['visual_num_channels'])))
                 obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
+
+            # print(obs.shape, act_gt.shape)
 
             act_pred = self.ibc_policy.act({'observations':obs})
 
