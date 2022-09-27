@@ -217,6 +217,7 @@ class Evaluation:
             self.episode_id = idx
             seed = np.random.randint(low=5000, high=6000)
             total_reward, success, num_steps = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
+            print(f'eval_traj_{idx}:', total_reward, success, num_steps)
             self.eval_info[f'eval_traj_{idx}'] = {
                 'seed':seed, 'total_reward':total_reward,
                 'success':success, 'num_steps':num_steps
@@ -244,7 +245,7 @@ class Evaluation:
                 success = True
                 break
 
-            print("at step ", num_steps)
+            # print("at step ", num_steps)
 
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
@@ -258,12 +259,12 @@ class Evaluation:
             # get predicted action from policy
             act = self.ibc_policy.act({'observations':obs}).squeeze()
             # print('act shape', act.shape)
-            print("prediceted action", act)
+            # print("prediceted action", act)
 
             # step and get rew, done
             _, rew, done, _ = self.env.step(act.detach().cpu().numpy())
-            print("Current step reward:", rew)
-            print("Traj is done:", bool(done))
+            # print("Current step reward:", rew)
+            # print("Traj is done:", bool(done))
 
             # save info and update steps
             total_reward += rew

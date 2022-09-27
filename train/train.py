@@ -33,7 +33,7 @@ flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in trai
 # General training config
 flags.DEFINE_integer('batch_size', 512, 'Training batch size')
 flags.DEFINE_float('lr', 5e-4, 'Initial optimizer learning rate')
-flags.DEFINE_integer('total_steps', int(5e5), 'Total training steps')
+flags.DEFINE_integer('total_steps', int(2e6), 'Total training steps')
 flags.DEFINE_integer('epoch_checkpoint', 200, 'Save checkpoint every x epoch')
 flags.DEFINE_integer('step_checkpoint', 5000, 
                      'Save checkpoint every x gradient steps')
