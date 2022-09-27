@@ -33,10 +33,12 @@ flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in trai
 # General training config
 flags.DEFINE_integer('batch_size', 512, 'Training batch size')
 flags.DEFINE_float('lr', 5e-4, 'Initial optimizer learning rate')
-flags.DEFINE_integer('total_steps', int(5e5), 'Total training steps')
-flags.DEFINE_integer('epoch_checkpoint', 200, 'Save checkpoint every x epoch')
+flags.DEFINE_integer('total_steps', int(2e6), 'Total training steps')
+flags.DEFINE_integer('epoch_checkpoint', 1000, 'Save checkpoint every x epoch')
 flags.DEFINE_integer('step_checkpoint', 5000, 
                      'Save checkpoint every x gradient steps')
+flags.DEFINE_integer('resume_from_step', None, 
+                     'Resume from previous checkpoint')
 
 # Network input dimensions
 flags.DEFINE_integer('obs_dim', 10,
@@ -133,6 +135,7 @@ def train(config):
     print('updating boundary', min_action, max_action)
 
     # prepare training network
+    resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
     network_visual=None
     if config['visual_type'] == 'pointnet':
         network_visual = pointnet.pointNetLayer(in_channel=config['visual_num_channels'], out_dim=config['visual_output_dim'])
@@ -144,6 +147,12 @@ def train(config):
         width=config['width'], depth=config['depth'],
         normalizer=config['mlp_normalizer'], rate=config['rate'],
         dense_layer_type=config['dense_layer_type']).to(device)
+
+        if resume_step > 0:
+            network_visual.load_state_dict(torch.load(
+            f"{checkpoint_path}step_{resume_step}_pointnet.pt"))
+            network.load_state_dict(torch.load(
+            f"{checkpoint_path}step_{resume_step}_mlp.pt"))
     
     else:
         network = mlp_ebm.MLPEBM(
@@ -151,6 +160,9 @@ def train(config):
         width=config['width'], depth=config['depth'],
         normalizer=config['mlp_normalizer'], rate=config['rate'],
         dense_layer_type=config['dense_layer_type']).to(device)
+        if resume_step > 0:
+            network.load_state_dict(torch.load(
+            f"{checkpoint_path}step_{resume_step}_mlp.pt"))
 
 
     print (network,[param.shape for param in list(network.parameters())] )
@@ -204,8 +216,8 @@ def train(config):
             })
 
             if agent.train_step_counter % config['step_checkpoint'] == 0:
-                torch.save(network.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'_mlp.pt')
-                torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter)+'_pointnet.pt')
+                torch.save(network.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter+resume_step)+'_mlp.pt')
+                torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter+resume_step)+'_pointnet.pt')
         
         epoch += 1
         

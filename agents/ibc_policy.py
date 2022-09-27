@@ -219,15 +219,9 @@ class IbcPolicy():
   def _distribution(self, time_step):
     # Use first observation to figure out batch/time sizes as they should be the
     # same across all observations.
-    # action_sample shape [num_policy_sample*batch_size, act_dim]
-    # probs shape [num_policy_sample*batch_size]
     action_samples, probs = self._probs(time_step)
     # print("action samples.shape", action_samples.shape, "probs shape", probs.shape)
     # Make a distribution for sampling.
     distribution = MappedCategorical(
         action_spec=self._action_spec, probs=probs, mapped_values=action_samples)
     return distribution
-
-if __name__ == '__main__':
-  obs = torch.rand((10,20))
-  _distribution()

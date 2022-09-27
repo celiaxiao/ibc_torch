@@ -5,7 +5,6 @@ Argument specification: TODO
 from absl import flags
 import sys
 import os
-# from environments.maniskill.maniskill_env import ExcavateEnvParticle, FillEnvParticle, HangEnvParticle
 
 # from pyrl.utils.data import GDict
 import h5py

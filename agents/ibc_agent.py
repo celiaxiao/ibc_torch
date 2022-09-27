@@ -122,7 +122,7 @@ class ImplicitBCAgent():
             experience):
     # ** Note **: Obs spec includes time dim. but hilighted here since we have
     # to deal with it.
-    # Observation: [B , obs_spec]
+    # Observation: [B , T , obs_spec]
     # Action:      [B , act_spec]
     observations, actions = experience
 

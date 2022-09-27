@@ -261,7 +261,7 @@ class Evaluation:
                 success = True
                 break
 
-            print("at step ", num_steps)
+            # print("at step ", num_steps)
 
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
@@ -275,12 +275,12 @@ class Evaluation:
             # get predicted action from policy
             act = self.ibc_policy.act({'observations':obs}).squeeze()
             # print('act shape', act.shape)
-            print("prediceted action", act)
+            # print("prediceted action", act)
 
             # step and get rew, done
             _, rew, done, _ = self.env.step(act.detach().cpu().numpy())
-            print("Current step reward:", rew)
-            print("Traj is done:", bool(done))
+            # print("Current step reward:", rew)
+            # print("Traj is done:", bool(done))
 
             # save info and update steps
             total_reward += rew
