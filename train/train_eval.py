@@ -138,16 +138,6 @@ def eval(exp_name, epoch, image_obs, task, goal_tolerance, obs_dim, act_dim, min
     env_name_clean = env_name.replace('/', '_')
     
     policy = eval_policy.Oracle(eval_env, policy=ibc_policy, mse=False)
-    video_module.make_video(
-                policy,
-                eval_env,
-                path,
-                step=np.array(epoch)) # agent.train_step)
-    # video_module.make_video(
-    #             policy,
-    #             eval_env,
-    #             path,
-    #             step=np.array(epoch+1)) # agent.train_step)
     logging.info('Evaluating', epoch)
     eval_actor, success_metric = eval_actor_module.get_eval_actor(
                             policy,
@@ -248,6 +238,7 @@ def train(exp_name, dataset_dir, image_obs, task, goal_tolerance, obs_dim, act_d
         min_action=min_action, max_action=max_action, add_grad_penalty=add_grad_penalty,
         fraction_dfo_samples=fraction_dfo_samples, fraction_langevin_samples=fraction_langevin_samples, 
         return_full_chain=False, run_full_chain_under_gradient=run_full_chain_under_gradient)
+
     # load dataset
     dataset = load_dataset(dataset_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, 

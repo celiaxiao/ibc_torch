@@ -35,13 +35,11 @@ def make_video(policy, env, root_dir, step):
     control_frequency = 30
   else:
     control_frequency = env.control_frequency
-  # env.seed(1) # set another seed
   video_env = mp4_video_wrapper.Mp4VideoWrapper(
       env, control_frequency, frame_interval=1, video_filepath=video_path)
   driver = py_driver.PyDriver(video_env, policy, observers=[], max_episodes=1)
   time_step = video_env.reset()
   initial_policy_state = policy.get_initial_state(1)
   driver.run(time_step, initial_policy_state)
-  
   video_env.close()  # Closes only the video env, not the underlying env.
   logging.info('Wrote video for step %d to %s', step, video_path)
