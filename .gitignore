@@ -21,3 +21,4 @@ train/configs/*
 train/nautilus/*
 *.pt
 *.sh
+spec-file.txt
