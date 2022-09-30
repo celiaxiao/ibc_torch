@@ -9,3 +9,4 @@ CUDA_VISIBLE_DEVICES=$GPUID python train/train_eval.py --train_task=door-human-v
 --eval_episodes=100
 
 # CUDA_VISIBLE_DEVICES=2 python train/train_eval.py --train_task=pen-human-v0 --exp_name=pen_human --eval --eval_epoch=8500 --eval_episodes=100
+# CUDA_VISIBLE_DEVICES=3 python train/train.py --flagfile=train/configs/excavate_config.txt --exp_name=dataset_size_2k —data_amount=2000 --resume_from_step=65000
