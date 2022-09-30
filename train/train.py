@@ -93,7 +93,7 @@ flags.DEFINE_boolean('run_full_chain_under_gradient', False,
 
 FLAGS = flags.FLAGS
 FLAGS(sys.argv)
-
+torch.autograd.set_detect_anomaly(True)
 def load_dataset(dataset_dir):
     dataset = torch.load(dataset_dir)
     return dataset
@@ -224,9 +224,9 @@ def train(config):
         print(agent.train_step_counter)
         print("loss at epoch", epoch, loss_dict['loss'].mean().item())
             
-        if epoch % config['epoch_checkpoint'] == 0:
-            torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_mlp.pt')
-            torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_pointnet.pt')
+        # if epoch % config['epoch_checkpoint'] == 0:
+        #     torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_mlp.pt')
+        #     torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_pointnet.pt')
 
 
 @torch.no_grad()
