@@ -63,8 +63,8 @@ flags.DEFINE_float('uniform_boundary_buffer', 0.05, '')
 
 # Visual network configs
 flags.DEFINE_string('visual_type', None, 'Visual network type')
-flags.DEFINE_string('visual_normalizer', None,
-                     'Normalizater for visual network')
+flags.DEFINE_boolean('visual_normalize', False,
+                     'Apply layer normalization for visual network')
 
 # Mlp network configs
 flags.DEFINE_string('mlp_normalizer', None,
@@ -138,7 +138,7 @@ def train(config):
     resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
     network_visual=None
     if config['visual_type'] == 'pointnet':
-        network_visual = pointnet.pointNetLayer(in_channel=config['visual_num_channels'], out_dim=config['visual_output_dim'])
+        network_visual = pointnet.pointNetLayer(in_dim=[config['visual_num_channels'], config['visual_num_points']], out_dim=config['visual_output_dim'], normalize=config['visual_normalize'])
 
         visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
 

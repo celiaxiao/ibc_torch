@@ -50,6 +50,8 @@ flags.DEFINE_integer('visual_num_channels', 3,
                      '6 if with rgb or 3 only xyz')
 flags.DEFINE_integer('visual_output_dim', None,
                      'Dimension for visual network output')
+flags.DEFINE_boolean('visual_normalize', False,
+                     'Apply layer normalization for visual network')
 
 # Action sampling config
 flags.DEFINE_string('action_spec_file', None,
@@ -148,7 +150,7 @@ class Evaluation:
         # create network
         network_visual=None
         if config['visual_type'] == 'pointnet':
-            network_visual = pointnet.pointNetLayer(in_channel=config['visual_num_channels'], out_dim=config['visual_output_dim'])
+            network_visual = pointnet.pointNetLayer(in_dim=[config['visual_num_channels'], config['visual_num_points']], out_dim=config['visual_output_dim'], normalize=config['visual_normalize'])
 
             visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
 

@@ -9,17 +9,20 @@ Ref: https://github.com/fxia22/pointnet.pytorch
 '''
 
 class pointNetLayer(nn.Module):
-    def __init__(self, in_channel=3, out_dim=512):
+    def __init__(self, in_dim=[3,1024], out_dim=512, normalize=False):
         super().__init__()
-        self.in_channel=in_channel
+        self.in_dim = in_dim
+        self.normalize = normalize
 
         # global feature mlp
-        self.conv1 = torch.nn.Conv1d(in_channel, 64, 1)
+        self.conv1 = torch.nn.Conv1d(self.in_dim[0], 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 512, 1)
-        # self.bn1 = nn.BatchNorm1d(64)
-        # self.bn2 = nn.BatchNorm1d(128)
-        # self.bn3 = nn.BatchNorm1d(512)
+
+        if self.normalize:
+            self.ln1 = torch.nn.LayerNorm([64, in_dim[1]])
+            self.ln2 = torch.nn.LayerNorm([128, in_dim[1]])
+            self.ln3 = torch.nn.LayerNorm([512, in_dim[1]])
 
         # project to desired output dim
         self.mlp_out = nn.Linear(512, out_dim)
@@ -29,12 +32,18 @@ class pointNetLayer(nn.Module):
 
     def forward(self, x):
         # print(x.size())
-        assert x.size()[-1] == self.in_channel # make sure last dim = 3 or 6
+        assert x.size()[-1] == self.in_dim[0] # make sure last dim = 3 or 6
         x = x.transpose(2, 1)
         
         x = F.relu(self.conv1(x))
+        if self.normalize:
+            x = self.ln1(x)
         x = F.relu(self.conv2(x))
+        if self.normalize:
+            x = self.ln2(x)
         x = self.conv3(x) # raw global feature
+        if self.normalize:
+            x = self.ln3(x)
 
         # print(x.shape)
         
@@ -47,11 +56,11 @@ class pointNetLayer(nn.Module):
     
 
 if __name__ == "__main__":
-    B = 256 # batch size
+    B = 234 # batch size
     N = 704 # num of points
     input = torch.rand((B, N, 3))
     print(input.shape)
-    ptnet = pointNetLayer()
+    ptnet = pointNetLayer(in_dim=[3,704], normalize=True)
     print(ptnet)
     # out = torch.squeeze(ptnet(input))
     out = ptnet(input)
