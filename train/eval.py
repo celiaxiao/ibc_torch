@@ -31,6 +31,8 @@ flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
+flags.DEFINE_string('eval_seeds_file', None, 'Json file that contains evaluation seeds')
+flags.DEFINE_integer('main_test_seed', 0, 'seed for episode seed generator if eval seeds file not provided')
 
 
 # General eval info
@@ -221,9 +223,17 @@ class Evaluation:
         rewards_info = np.zeros(self.config['num_episodes'])
         shifted_rewards_info = np.zeros(self.config['num_episodes'])
         success_info = np.zeros(self.config['num_episodes'])
+
+        if self.config['eval_seeds_file']:
+            seeds_file = json.load(open(self.config['eval_seeds_file']))
+            seeds = [seeds_file['episodes'][i]['episode_seed'] for i in range(self.config['num_episodes'])]
+        else:
+            rng = np.random.default_rng(self.config['main_test_seed'])
+            seeds = rng.choice(range(5000, 6000), size=self.config['num_episodes'], replace=False)
+
         for idx in range(self.config['num_episodes']):
             self.episode_id = idx
-            seed = np.random.randint(low=5000, high=6000)
+            seed = seeds[idx]
             # seed = known_seed[idx]
             total_reward, success, num_steps, shifted_reward = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
             self.eval_info[f'eval_traj_{idx}'] = {
