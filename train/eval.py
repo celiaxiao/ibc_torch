@@ -6,6 +6,7 @@ from absl import flags
 
 from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
+from agents.utils import save_json
 from network import mlp_ebm, ptnet_mlp_ebm
 from network.layers import pointnet
 from environments.maniskill.maniskill_env import *
@@ -250,9 +251,9 @@ class Evaluation:
                 'min_shifted_rewards': shifted_rewards_info.min(),
             }
 
-        with open(f"{self.eval_info_path}traj_info.json", 'w') as f:
-            json.dump(self.eval_info, f, indent=4)
-
+        # with open(f"{self.eval_info_path}traj_info.json", 'w') as f:
+        #     json.dump(self.eval_info, f, indent=4)
+        save_json(self.eval_info, self.eval_info_path, "traj_info.json")
         # np.save(eval_info_path+'eval_info.npy', self.eval_info)
 
     
