@@ -377,6 +377,8 @@ if __name__ == '__main__':
         min_action = [-0.03, -0.03]
         dataset_dir = 'data/block_push_states_location/push_250.pt'
     elif task == 'PARTICLE':
+        obs_dim = 8
+        act_dim = 2
         max_action = [1, 1]
         min_action = [0, 0]
     elif task == 'door-human-v0':

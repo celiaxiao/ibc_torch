@@ -120,6 +120,15 @@ class IbcPolicy():
 
   def act(self, time_step):
     # time_step: dict{'observations'}
+    if isinstance(time_step['observations'], dict):
+        # print('single obs', observations, list(observations.keys())[0])
+        single_obs = time_step['observations'][list(time_step['observations'].keys())[0]]
+        time_step['observations'] = utils.dict_flatten(time_step['observations'])
+    else:
+        single_obs = time_step['observations']
+    batch_size = single_obs.shape[0]
+    # observations shape [B, obs_dim]
+    time_step['observations'] = time_step['observations'].reshape([batch_size, -1])
     distribution = self._distribution(time_step=time_step)
     sample = distribution.sample([time_step['observations'].shape[0]])
     return sample
@@ -143,7 +152,7 @@ class IbcPolicy():
     else:
         single_obs = observations
     batch_size = single_obs.shape[0]
-    #TODO: may have error for shape [B, T, obs_dim]
+    # observations shape [B, obs_dim]
     observations = observations.reshape([batch_size, -1])
     if self._late_fusion:
       maybe_tiled_obs = observations

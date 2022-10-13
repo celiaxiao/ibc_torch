@@ -10,7 +10,9 @@ from agents.utils import save_json
 from network import mlp_ebm, ptnet_mlp_ebm
 from network.layers import pointnet
 from environments.maniskill.maniskill_env import *
-
+from train import make_video as video_module
+from train import get_eval_actor as eval_actor_module
+from eval import eval_env as eval_env_module
 from torch.utils.data import DataLoader, Dataset
 from data.dataset_maniskill import *
 import torch
@@ -34,7 +36,9 @@ flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in trai
 flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
 flags.DEFINE_string('eval_seeds_file', None, 'Json file that contains evaluation seeds')
 flags.DEFINE_integer('main_test_seed', 0, 'seed for episode seed generator if eval seeds file not provided')
-
+flags.DEFINE_boolean('image_obs', False, 'using image observation')
+flags.DEFINE_float('goal_tolerance', 0.02, 'tolerance for current position vs the goal')
+flags.DEFINE_boolean('viz_img', False, 'visualize image in eval')
 
 # General eval info
 flags.DEFINE_integer('num_episodes', 1, 'number of new seed episodes')
@@ -105,7 +109,16 @@ class Evaluation:
         self.config = config
 
         # Create evaluation env
-        self.env = self.create_env()
+        if self.config['env_name'] in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED', 'PUSH_DISCONTINUOUS', 'PUSH_MULTIMODAL',
+                          'PARTICLE', 'door-human-v0', 'hammer-human-v0', 'relocate-human-v0', 'pen-human-v0']:
+            self.env_name = eval_env_module.get_env_name(config['env_name'], False,
+                                            config['image_obs'])
+            print(('Got env name:', self.env_name))
+            self.env = eval_env_module.get_eval_env(
+                self.env_name, 1, config['goal_tolerance'], 1)
+            self.env_name_clean = self.env_name.replace('/', '_')
+        else:
+            self.env = self.create_env()
 
         # Create network and load from checkpoint
         self.network_visual, self.network = self.create_and_load_network()
@@ -378,15 +391,85 @@ class Evaluation:
         imgs.write_videofile(path, fps=fps)
 
 
+    def eval_ibc_task(self):
+        """main ibc eval loop
+        The checkpoint will be found in tests/policy_exp/${exp_name}
+
+        Args:
+            exp_name (string): the name for this experiment
+            epoch (int): which checkpoint to eval from
+            image_obs (bool): whether using image as part of the observation
+            task (string): gym env name
+            goal_tolerance (float): tolerance for current position vs the goal
+            obs_dim (int): observation space dimension
+            act_dim (int): action space dimension
+            min_action (float[]): minimal value for action in each dimension
+            max_action (float[]): maximum value for action in each dimension
+        """
+        
+        policy = eval_policy.Oracle(self.env, policy=self.ibc_policy, mse=False)
+        # logging.info('Evaluating', epoch)
+        for idx in range(max(1, int(self.config['num_episodes']/10))):
+            video_module.make_video(
+                    policy,
+                    self.env,
+                    f"{self.eval_info_path}/videos",
+                    f"{self.config['eval_step']}_{idx}")
+        eval_actor, success_metric = eval_actor_module.get_eval_actor(
+                                policy,
+                                self.env_name,
+                                self.env,
+                                self.config['eval_step'],
+                                self.config['num_episodes'],
+                                self.eval_info_path,
+                                viz_img=self.config['viz_img'],
+                                summary_dir_suffix=self.env_name_clean)
+        
+        metrics = self.evaluation_step(
+            self.config['num_episodes'],
+            self.env,
+            eval_actor,
+            name_scope_suffix=f'_{self.env_name}')
+        # for m in metrics:
+        #     writer.add_scalar(m.name, m.result(), epoch)
+        print('Done evaluation')
+        log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
+        print('\n\t\t '.join(log))
+        with open(self.eval_info_path+'metrics.txt', 'w') as f:
+            f.write(' '.join(map(str, log)))
+        print("evaluation at step", self.config['eval_step'], "\n", log)
+    
+    
+    def evaluation_step(self, eval_episodes, eval_env, eval_actor, name_scope_suffix=''):
+        """Evaluates the agent in the environment."""
+        print('Evaluating policy.')
+    
+        # This will eval on seeds:
+        # [0, 1, ..., eval_episodes-1]
+        for eval_seed in range(eval_episodes):
+            eval_env.seed(eval_seed)
+            eval_actor.reset()  # With the new seed, the env actually needs reset.
+            eval_actor.run()
+        return eval_actor.metrics
+    
 if __name__ == "__main__":
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
     config = FLAGS.flag_values_dict()
+    if config['action_spec_file'] is not None:
+        with open(config['action_spec_file'], 'rb') as f:
+            action_stat = np.load(f, allow_pickle=True).item()
+            config['max_action'] = action_stat['max']
+            config['min_action'] = action_stat['min']
     print(config)
 
     eval = Evaluation(config)
+    
+    if FLAGS.env_name in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED', 'PUSH_DISCONTINUOUS', 'PUSH_MULTIMODAL',
+                          'PARTICLE', 'door-human-v0', 'hammer-human-v0', 'relocate-human-v0', 'pen-human-v0']:
+        eval.eval_ibc_task()
 
-    if FLAGS.num_episodes > 0:
+    elif FLAGS.num_episodes > 0:
         eval.run_eval()
     if FLAGS.compute_mse:
         eval.compute_mse()
