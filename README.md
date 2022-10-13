@@ -37,6 +37,10 @@ Example IBC policy  | Example MSE policy
 
 ### Task: Block Pushing (from state observations)
 
+Push the block to the given position.
+
+### Task: pen-human
+Rotate the pen by 90 degree.
 
 ## Dataset processing
 
