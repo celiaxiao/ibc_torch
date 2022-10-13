@@ -1,0 +1,21 @@
+# Sample config file for maniskill hang pointcloud obs mode
+
+# General exp info
+--env_name=hammer-human-v0
+
+--dataset_dir=data/d4rl/hammer-human-v0.pt
+--action_spec_file=data/d4rl/hammer-human-v0_action_stat.pt
+
+# Network input dimensions
+--obs_dim=46
+--act_dim=26
+--width=512
+--depth=8
+--rate=0.0
+--dense_layer_type='spectral_norm'
+
+#train config
+--batch_size=512
+--num_counter_sample=8
+--lr=5e-4
+--fraction_langevin_samples=1.0

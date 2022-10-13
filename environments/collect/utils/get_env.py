@@ -44,5 +44,9 @@ def get_env(task,
   elif task in ['PUSH_MULTIMODAL']:
     env_name = block_pushing_multimodal.build_env_name(
         task, shared_memory_pybullet, use_image_obs=False)
+  elif task == 'PARTICLE':
+    env_name = 'Particle-v0'
+  else:
+     raise NotImplementedError
   logging.info('Loading environment %s (env_name=%s)', task, env_name)
   return suite_gym.load(env_name, max_episode_steps=max_episode_steps)

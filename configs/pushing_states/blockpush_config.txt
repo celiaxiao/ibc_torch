@@ -1,0 +1,23 @@
+# Sample config file for maniskill hang pointcloud obs mode
+
+# General exp info
+--env_name=PUSH
+
+--dataset_dir=data/ibcDataset/PUSH_200.pt
+--action_spec_file=data/ibcDataset/PUSH_200_action_stat.pt
+
+# Network input dimensions
+--obs_dim=10
+--act_dim=2
+--width=128
+--depth=8
+--rate=0.0
+--dense_layer_type='regular'
+
+#train config
+--batch_size=1024
+--num_counter_sample=256
+--lr=1e-3
+--fraction_langevin_samples=0.0
+--fraction_dfo_samples=1.0
+--train_dfo_iterations=25

@@ -18,7 +18,7 @@ import environments.block_pushing.oracles.oriented_push_oracle as oriented_push_
 import environments.block_pushing.oracles.reach_oracle as reach_oracle_module
 import environments.block_pushing.oracles.discontinuous_push_oracle as discontinuous_push_oracle
 import environments.block_pushing.oracles.multimodal_push_oracle as multimodal_push_oracle
-
+import environments.particle.particle_oracles as particle_oracles
 def get_oracle(env, task):
   """Gets an oracle for a given task."""
   if task == 'REACH':
@@ -29,6 +29,8 @@ def get_oracle(env, task):
     oracle_policy = discontinuous_push_oracle.DiscontinuousOrientedPushOracle(env)
   elif task == 'PUSH_MULTIMODAL':
     oracle_policy = multimodal_push_oracle.MultimodalOrientedPushOracle(env)
+  elif task == 'PARTICLE':
+    oracle_policy = particle_oracles.ParticleOracle(env)
   else:
     raise ValueError('oracle not registered.')
   return oracle_policy
