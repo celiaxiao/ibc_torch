@@ -1,27 +1,21 @@
+import sys
 import numpy as np
 import torch
+from absl import flags
+from data.transform_dataset import d4rl_dataset
 from torch.utils.data import Dataset
-class d4rl_dataset(Dataset):
-    def __init__(self, observations, actions, device=None):
-        experiences = []
-        if device is None:
-            device = torch.device('cuda')
-        for idx in range(len(observations)):
-            exp = {}
-            # print(obs_dict)
-            exp['observation'] = torch.tensor(observations[idx]).to(device)
-            exp['action'] = torch.tensor(actions[idx]).to(device)
-            experiences.append(exp)
-            # print('cast tensor', experiences[idx], '\n')
-        self.experiences = experiences
+flags.DEFINE_string(
+    'task',
+    None,
+    'Which task to run')
+flags.DEFINE_string(
+    'dataset_path', './data/d4rl/',
+    'If set a dataset of the oracle output will be saved '
+    'to the given path.')
+FLAGS = flags.FLAGS
+flags.mark_flags_as_required(['task'])
+FLAGS(sys.argv)
 
-    def __len__(self):
-        return len(self.experiences)
-
-    def __getitem__(self, idx):
-        obs = self.experiences[idx]['observation']
-        act = self.experiences[idx]['action']
-        return obs, act.squeeze()
 
 def save_dataset(dataset, env_name):
     print(dataset['observations'].shape, dataset['actions'].shape) # An N x dim_observation Numpy array of observations
@@ -30,7 +24,7 @@ def save_dataset(dataset, env_name):
     print(ibc_dataset.__len__())
     
     print(ibc_dataset.__getitem__(1))   
-    torch.save(ibc_dataset, './d4rl/' + env_name + '.pt')
+    torch.save(ibc_dataset, FLAGS.dataset_path + env_name + '.pt')
 
 def get_action_stat(dataset, env_name):
     action = dataset['actions']
@@ -38,7 +32,7 @@ def get_action_stat(dataset, env_name):
     action_stat = {}
     action_stat['min'] = action.min(0)
     action_stat['max'] = action.max(0)
-    with open('./d4rl/' + env_name + '_action_stat.pt', 'wb') as f:
+    with open(FLAGS.dataset_path + env_name + '_action_stat.pt', 'wb') as f:
         np.save(f, action_stat)
     
     
@@ -52,8 +46,8 @@ if __name__ == '__main__':
     # pen human: 5000 experience pair, obs shape(5000, 45) act shape(5000, 24)
 
     # Create the environment
-    env_name = 'pen-human'
-    env = gym.make(env_name + '-v0')
+    env_name = FLAGS.task
+    env = gym.make(env_name)
 
     # d4rl abides by the OpenAI gym interface
     env.reset()

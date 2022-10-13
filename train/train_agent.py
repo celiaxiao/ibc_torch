@@ -14,8 +14,7 @@ import numpy as np
 import tqdm
 from torch.utils.data import DataLoader, Dataset
 
-# from data.transform_dataset import Ibc_dataset
-# from data.dataset_d4rl import d4rl_dataset
+from data.transform_dataset import Ibc_dataset, d4rl_dataset
 from data.dataset_maniskill import *
 
 import wandb
@@ -217,7 +216,8 @@ def train(config):
 
             if agent.train_step_counter % config['step_checkpoint'] == 0:
                 torch.save(network.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter+resume_step)+'_mlp.pt')
-                torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter+resume_step)+'_pointnet.pt')
+                if config['visual_type'] == 'pointnet':
+                    torch.save(network_visual.state_dict(), checkpoint_path+'step_'+str(agent.train_step_counter+resume_step)+'_pointnet.pt')
         
         epoch += 1
         
@@ -251,7 +251,7 @@ if __name__ == '__main__':
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
     config = FLAGS.flag_values_dict()
     print(config)
-    
+
     if config['action_spec_file'] is not None:
         with open(config['action_spec_file'], 'rb') as f:
             action_stat = np.load(f, allow_pickle=True).item()

@@ -24,11 +24,11 @@ except ImportError:
 from tf_agents.drivers import py_driver
 
 
-def make_video(policy, env, root_dir, step):
+def make_video(policy, env, root_dir, postfix):
   """Creates a video of a single rollout from the current policy."""
 #   policy = strategy_policy.StrategyPyTFEagerPolicy(
 #       agent.policy, strategy=strategy)
-  video_path = os.path.join(root_dir, 'vid_%d.mp4' % step)
+  video_path = os.path.join(root_dir, 'vid_%s.mp4' % postfix)
   if not hasattr(env, 'control_frequency'):
     # Use this control freq for d4rl envs, which don't have a control_frequency
     # attr.
@@ -42,4 +42,4 @@ def make_video(policy, env, root_dir, step):
   initial_policy_state = policy.get_initial_state(1)
   driver.run(time_step, initial_policy_state)
   video_env.close()  # Closes only the video env, not the underlying env.
-  logging.info('Wrote video for step %d to %s', step, video_path)
+  logging.info('Wrote video for step %s to %s', postfix, video_path)

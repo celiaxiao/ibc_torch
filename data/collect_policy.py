@@ -48,21 +48,17 @@ flags.DEFINE_bool('noisy_ee_pose', True, 'Whether to use noisy pose '
 flags.DEFINE_bool('no_episode_step_limit', False,
                   'If True, remove max_episode_steps step limit.')
 flags.DEFINE_string(
-    'dataset_path', './data',
+    'dataset_path', './data/ibcDataset/',
     'If set a dataset of the oracle output will be saved '
     'to the given path.')
-flags.DEFINE_integer('dataset_nshards', 1, 'Number of dataset shards to save.')
 flags.DEFINE_string(
     'pybullet_state_path', None,
     'If set a json record of full pybullet, action and state '
     'will be saved to the given path.')
-flags.DEFINE_bool('shared_memory', False, 'Shared memory for pybullet.')
 flags.DEFINE_bool('save_successes_only', True,
                   'Whether to save only successful episodes.')
 flags.DEFINE_integer('num_episodes', 1,
                      'The number of episodes to collect.')
-flags.DEFINE_integer('worker_id', 0, 'Worker id of the replica.')
-flags.DEFINE_integer('worker_replicas', 1, 'Number of worker replicas')
 flags.DEFINE_bool('video', False,
                   'If true record a video of the evaluations.')
 flags.DEFINE_string('video_path', None, 'Path to save videos at.')
@@ -91,14 +87,6 @@ def main(argv):
   if hasattr(env, 'save_state'):
     env.save_state()
 
-  # If dataset_path specified, create tfrecord observers for writing out
-  # training data.
-  observers = serialize_module.get_tfrecord_observers(
-      env,
-      tfagents_path=FLAGS.dataset_path,
-      worker_id=FLAGS.worker_id,
-      dataset_nshards=FLAGS.dataset_nshards)
-
   cur_observer = 0
   num_episodes = 0
   num_failures = 0
@@ -106,6 +94,8 @@ def main(argv):
   experiences = []
   min_act = []
   max_act = []
+  savePyBulletState = FLAGS.task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED',
+                          'PUSH_DISCONTINUOUS', 'PUSH_MULTIMODAL']
   while True:
     logging.info('Starting episode %d.', num_episodes)
     episode_data = serialize_module.EpisodeData(
@@ -113,7 +103,8 @@ def main(argv):
 
     time_step = env.reset()
     episode_data.time_step.append(time_step)
-    episode_data.pybullet_state.append(env.get_pybullet_state())
+    if savePyBulletState:
+      episode_data.pybullet_state.append(env.get_pybullet_state())
 
     if hasattr(env, 'instruction') and env.instruction is not None:
       logging.info('Current instruction: %s',
@@ -139,7 +130,8 @@ def main(argv):
         episode_data.action.append(
             policy_step.PolicyStep(action=action, state=(), info=()))
         episode_data.time_step.append(time_step)
-        episode_data.pybullet_state.append(env.get_pybullet_state())
+        if savePyBulletState:
+          episode_data.pybullet_state.append(env.get_pybullet_state())
 
       done = time_step.is_last()
       reward = time_step.reward
@@ -153,36 +145,43 @@ def main(argv):
 
       num_episodes += 1
 
-      if observers:
-        total_num_steps += len(episode_data.action)
-        print('Recording', len(episode_data.action), 'length episode to shard',cur_observer)
-        # serialize_module.write_tfagents_data(
-        #     episode_data, observers[cur_observer])
-        # cur_observer = (cur_observer + 1) % len(observers)
-        obs = [data.observation for data in episode_data.time_step]
-        act = [data.action for data in episode_data.action]
-        
-        for i in range(len(act)):
-          experience = {'observation':obs[i], 'action':act[i]}
-          experiences.append(experience)
-          actions = np.array(act)
-          min_act.append(actions.min())
-          max_act.append(actions.max())
-        # print(obs)
-        # print(act)
-      if num_episodes >= FLAGS.num_episodes:
-        experiences = np.array(experiences)
-        dataset = Ibc_dataset(experiences)
-        # act min max -0.03 0.03
-        # Num episodes: 1000 Num failures: 34
-        # Avg steps: 113.435
-        torch.save(dataset, FLAGS.dataset_path)
-        print("act min max", np.array(min_act).min(), np.array(max_act).max())
-        print(
-            'Num episodes:', num_episodes, 'Num failures:', num_failures )
-        print('Avg steps:', total_num_steps / num_episodes)
 
-        return
+      total_num_steps += len(episode_data.action)
+      print('Recording', len(episode_data.action), 'length episode to shard',cur_observer)
+
+      obs = [data.observation for data in episode_data.time_step]
+      act = [data.action for data in episode_data.action]
+      
+      for i in range(len(act)):
+        experience = {'observation':obs[i], 'action':act[i]}
+        experiences.append(experience)
+        actions = np.array(act)
+        min_act.append(actions.min())
+        max_act.append(actions.max())
+      # print(obs)
+      # print(act)
+    if num_episodes >= FLAGS.num_episodes:
+      experiences = np.array(experiences)
+      dataset = Ibc_dataset(experiences)
+      # act min max -0.03 0.03
+      # Num episodes: 1000 Num failures: 34
+      # Avg steps: 113.435
+      path = os.path.join(FLAGS.dataset_path, f"{FLAGS.task}_{FLAGS.num_episodes}.pt")
+      if not os.path.exists(FLAGS.dataset_path):
+        os.makedirs(FLAGS.dataset_path)
+      torch.save(dataset, path)
+      action_stat = {}
+      action_stat['min'] = np.array(min_act).min()
+      action_stat['max'] = np.array(max_act).max()
+      with open(FLAGS.dataset_path + f"{FLAGS.task}_{FLAGS.num_episodes}" + '_action_stat.pt', 'wb') as f:
+          np.save(f, action_stat)
+      print("obs, act", experiences[0])
+      print("act min max", np.array(min_act).min(), np.array(max_act).max())
+      print(
+          'Num episodes:', num_episodes, 'Num failures:', num_failures )
+      print('Avg steps:', total_num_steps / num_episodes)
+
+      return
 
 
 if __name__ == '__main__':
