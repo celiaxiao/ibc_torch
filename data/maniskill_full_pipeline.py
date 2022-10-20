@@ -30,7 +30,7 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
     h5_demo = h5py.File(h5_path, 'r')
     # h5_demo = GDict.from_hdf5(h5_path)
     json_data = json.load(open(json_path))
-
+    print("converting.....")
     all_obs = []
     all_actions = []
     all_rewards = []
@@ -39,7 +39,7 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
     for episode in json_data['episodes']:
         episode_id = 'traj_' + str(episode['episode_id'])
         target_env.reset(seed=episode["episode_seed"])
-
+        print("starting episode", episode_id)
         for action in h5_demo[episode_id]['actions']:
             obs = target_env.get_obs()
 
@@ -57,7 +57,6 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
 
         print(f'finished {episode_id}, success status {target_env.evaluate()}')
         print(len(all_obs), len(all_actions), len(all_rewards), len(all_dones))
-        break
 
     if raw_data_path:
         np.save(f'{raw_data_path}/{prefix}_observations.npy', all_obs)
