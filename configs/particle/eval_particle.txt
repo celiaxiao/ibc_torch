@@ -1,0 +1,25 @@
+# Sample config file for maniskill hang pointcloud obs mode
+
+# General exp info
+--env_name=PARTICLE
+
+# General eval info
+--num_episodes=10
+--eval_step=5000
+--compute_mse=False
+--viz_img=True
+
+# Network input dimensions
+--obs_dim=8
+--act_dim=2
+--width=2048
+--depth=2
+--rate=0.0
+--dense_layer_type='regular'
+
+#eval config
+--num_policy_sample=512
+--use_langevin=True
+--use_dfo=False
+--optimize_again=True
+--eval_langevin_iterations=100
