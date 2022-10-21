@@ -22,4 +22,7 @@ train/nautilus/*
 *.pt
 *.sh
 spec-file.txt
+<<<<<<< HEAD
 !configs/*
+=======
+>>>>>>> temp

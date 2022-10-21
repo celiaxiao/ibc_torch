@@ -19,7 +19,11 @@ install_requires = [
 
 
 setup(
+<<<<<<< HEAD
     name='concept',
+=======
+    name='ibc_torch',
+>>>>>>> temp
     version='0.0.1',
     install_requires=install_requires,
     py_modules=['agents', 'ibc', 'losses','network','environments','tests',

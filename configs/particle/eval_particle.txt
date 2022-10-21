@@ -5,7 +5,7 @@
 
 # General eval info
 --num_episodes=10
---eval_step=5000
+--eval_step=50000
 --compute_mse=False
 --viz_img=True
 
