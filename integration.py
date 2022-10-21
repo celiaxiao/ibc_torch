@@ -6,8 +6,12 @@ from environments.maniskill.maniskill_env import *
 env = HangEnvParticle(control_mode='pd_joint_delta_pos', obs_mode='particles')
 env.unwrapped
 dataset = (env.get_dataset('./data/softbody/Hang-v0/Hang-v0_particles_pd_joint_delta_pos_processed.h5'))
-for k, i in (dataset['terminals']).all():
-    if i== True:
-        print(k)
+print(dataset['terminals'][-100:])
+for i in range(len(dataset['terminals'])):
+    if dataset['terminals'][i] == True:
+        # print(i)
+        pass
     
-print(env.max_episode_steps)
+print(env._max_episode_steps)
+
+print("observation space", env.observation_space.shape)
