@@ -49,6 +49,9 @@ class FillEnvParticle(FillEnv):
     '''
     Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
     '''
+    def __init__(self, *args, **kwargs) -> None:
+        self._max_episode_steps = 250
+        super().__init__(*args, **kwargs)
     def get_obs(self):
         obs = super().get_obs()
 
@@ -61,6 +64,9 @@ class ExcavateEnvParticle(ExcavateEnv):
     '''
     Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
     '''
+    def __init__(self, *args, **kwargs) -> None:
+        self._max_episode_steps = 350
+        super().__init__(*args, **kwargs)
     def get_obs(self):
         obs = super().get_obs()
 
