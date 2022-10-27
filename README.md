@@ -84,6 +84,8 @@ CUDA_VISIBLE_DEVICES=0 python data/maniskill_full_pipeline.py \
 --h5_path=CONVERTED_H5_FILE_PATH --json_path=CONVERTED_JSON_PATH \
 --env_name=YOUR_ENV_NAME(e.g. Hang-v0) --raw_data_path=YOUR_NPY_DATA_PATH --dataset_path=YOUR_DATASET_PATH
 ```
+Note that is providing --new_h5_path, the pipeline will store the new h5 file with a dict of ['observations', 'actions', 'rewards', 'terminals'].
+
 When running this script, it should print you at first the `obs_dim` and `act_dim` for the env and demo. Record this and we will need them later in training and evaluation config file.  
 Also, it should print to console replay success status for each trajectory in demo. Please let me know if there are a lot of False.
 
