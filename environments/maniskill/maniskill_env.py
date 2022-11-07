@@ -16,6 +16,25 @@ class HangEnvParticle(HangEnv):
 
         return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
 
+class HangEnvPointcloud(HangEnv):
+    '''
+    Maniskill HangEnv with ibc-formatted observation wrapper. Pointcloud obs-mode.
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(obs_mode='pointcloud', *args, **kwargs)
+
+    def get_obs(self):
+        obs = super().get_obs()
+
+        # all valid indices of points
+        valid = np.array(range(len(obs['pointcloud']['xyz'])))[obs['pointcloud']['xyz'][:,2] > 0]
+        sel = np.random.choice(valid, size=1024, replace=False)
+        xyz = obs['pointcloud']['xyz'][sel]
+        rgb = obs['pointcloud']['rgb'][sel]
+        agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
+
+        return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
+
 class HangEnvState(HangEnv):
     '''
     State obs-mode. 
@@ -52,6 +71,24 @@ class FillEnvParticle(FillEnv):
 
         return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
 
+class FillEnvPointcloud(FillEnv):
+    '''
+    Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(obs_mode='pointcloud', *args, **kwargs)
+
+    def get_obs(self):
+        obs = super().get_obs()
+
+        valid = np.array(range(len(obs['pointcloud']['xyz'])))[obs['pointcloud']['xyz'][:,2] > 0]
+        sel = np.random.choice(valid, size=1024, replace=False)
+        xyz = obs['pointcloud']['xyz'][sel]
+        rgb = obs['pointcloud']['rgb'][sel]
+        agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
+
+        return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
+
 class ExcavateEnvParticle(ExcavateEnv):
     '''
     Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
@@ -63,3 +100,21 @@ class ExcavateEnvParticle(ExcavateEnv):
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], np.array([(self.target_num - 250)/900.])))
 
         return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
+
+class ExcavateEnvPointcloud(ExcavateEnv):
+    '''
+    Maniskill HangEnv with ibc-formatted observation wrapper. Particles obs-mode.
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(obs_mode='pointcloud', *args, **kwargs)
+
+    def get_obs(self):
+        obs = super().get_obs()
+
+        valid = np.array(range(len(obs['pointcloud']['xyz'])))[obs['pointcloud']['xyz'][:,2] > 0]
+        sel = np.random.choice(valid, size=1024, replace=False)
+        xyz = obs['pointcloud']['xyz'][sel]
+        rgb = obs['pointcloud']['rgb'][sel]
+        agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
+
+        return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
