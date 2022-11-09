@@ -16,10 +16,10 @@ class HangEnvParticle(HangEnv):
     def get_obs(self):
         obs = super().get_obs()
 
-        xyz = obs['particles']['x'][np.random.choice(range(len(obs['particles']['x'])), size=1024, replace=False)]
+        xyzw = obs['particles']['x'][np.random.choice(range(len(obs['particles']['x'])), size=1024, replace=False)]
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], self.rod.get_pose().p,self.rod.get_pose().q))
 
-        return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
+        return np.concatenate((xyzw.reshape(-1,1).squeeze(), agent))
 
 class HangEnvPointcloud(HangEnv):
     '''
@@ -32,13 +32,13 @@ class HangEnvPointcloud(HangEnv):
         obs = super().get_obs()
 
         # all valid indices of points
-        valid = np.array(range(len(obs['pointcloud']['xyz'])))[obs['pointcloud']['xyz'][:,2] > 0]
+        valid = np.array(range(len(obs['pointcloud']['xyzw'])))[obs['pointcloud']['xyzw'][:,:3][:, 2] > 0]
         sel = np.random.choice(valid, size=1024, replace=False)
-        xyz = obs['pointcloud']['xyz'][sel]
+        xyzw = obs['pointcloud']['xyzw'][sel]
         rgb = obs['pointcloud']['rgb'][sel]
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
 
-        return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
+        return {'pointcloud':{'xyzw':xyzw, 'rgb':rgb}, 'extra':agent}
 
 class HangEnvState(HangEnv):
     '''
@@ -74,10 +74,10 @@ class FillEnvParticle(FillEnv):
     def get_obs(self):
         obs = super().get_obs()
 
-        xyz = obs['particles']['x']
+        xyzw = obs['particles']['x']
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], self.beaker_x, self.beaker_y))
 
-        return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
+        return np.concatenate((xyzw.reshape(-1,1).squeeze(), agent))
 
 class FillEnvPointcloud(FillEnv):
     '''
@@ -89,13 +89,13 @@ class FillEnvPointcloud(FillEnv):
     def get_obs(self):
         obs = super().get_obs()
 
-        valid = np.array(range(len(obs['pointcloud']['xyz'])))[obs['pointcloud']['xyz'][:,2] > 0]
+        valid = np.array(range(len(obs['pointcloud']['xyzw'])))[obs['pointcloud']['xyzw'][:,:3][:, 2] > 0]
         sel = np.random.choice(valid, size=1024, replace=False)
-        xyz = obs['pointcloud']['xyz'][sel]
+        xyzw = obs['pointcloud']['xyzw'][sel]
         rgb = obs['pointcloud']['rgb'][sel]
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
 
-        return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
+        return {'pointcloud':{'xyzw':xyzw, 'rgb':rgb}, 'extra':agent}
 
 class ExcavateEnvParticle(ExcavateEnv):
     '''
@@ -107,10 +107,10 @@ class ExcavateEnvParticle(ExcavateEnv):
     def get_obs(self):
         obs = super().get_obs()
 
-        xyz = obs['particles']['x'][np.random.choice(range(len(obs['particles']['x'])), size=1024, replace=False)]
+        xyzw = obs['particles']['x'][np.random.choice(range(len(obs['particles']['x'])), size=1024, replace=False)]
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], np.array([(self.target_num - 250)/900.])))
 
-        return np.concatenate((xyz.reshape(-1,1).squeeze(), agent))
+        return np.concatenate((xyzw.reshape(-1,1).squeeze(), agent))
 
 class ExcavateEnvPointcloud(ExcavateEnv):
     '''
@@ -121,11 +121,11 @@ class ExcavateEnvPointcloud(ExcavateEnv):
 
     def get_obs(self):
         obs = super().get_obs()
-
-        valid = np.array(range(len(obs['pointcloud']['xyz'])))[obs['pointcloud']['xyz'][:,2] > 0]
+        xyz = obs['pointcloud']['xyzw'][:,:3]
+        valid = np.array(range(len(obs['pointcloud']['xyzw'])))[obs['pointcloud']['xyzw'][:,:3][:, 2] > 0]
         sel = np.random.choice(valid, size=1024, replace=False)
-        xyz = obs['pointcloud']['xyz'][sel]
+        xyzw = obs['pointcloud']['xyzw'][sel]
         rgb = obs['pointcloud']['rgb'][sel]
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
 
-        return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
+        return {'pointcloud':{'xyzw':xyzw, 'rgb':rgb}, 'extra':agent}
