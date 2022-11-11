@@ -1,5 +1,21 @@
 ## Workflow
 
+Maniskill processing:
+- pointcloud:
+CUDA_VISIBLE_DEVICES=0 python data/maniskill_full_pipeline.py --h5_path=/home/caiwei/data/soft_body_envs/Fill-v0/trajectory.none.pd_joint_delta_pos.h5 --json_path=/home/caiwei/data/soft_body_envs/Fill-v0/trajectory.none.pd_joint_delta_pos.json --env_name=Fill-v0 --new_h5_path=/home/caiwei/data/soft_body_envs/Fill-v0/ --obs_mode=pointcloud
+traj 174 finishs at step 31074
+last traj starts at 34258
+total 193 trajs
+
+CUDA_VISIBLE_DEVICES=1 python data/maniskill_full_pipeline.py --h5_path=/home/caiwei/data/soft_body_envs/Hang-v0/trajectory.none.pd_joint_delta_pos.h5 --json_path=/home/caiwei/data/soft_body_envs/Hang-v0/trajectory.none.pd_joint_delta_pos.json --env_name=Hang-v0 --new_h5_path=/home/caiwei/data/soft_body_envs/Hang-v0/ --obs_mode=pointcloud
+traj 170 finishs at step 45420
+total 191 trajs
+
+CUDA_VISIBLE_DEVICES=0 python data/maniskill_full_pipeline.py --h5_path=/home/caiwei/data/soft_body_envs/Excavate-v0/trajectory.none.pd_joint_delta_pos.h5 --json_path=/home/caiwei/data/soft_body_envs/Excavate-v0/trajectory.none.pd_joint_delta_pos.json --env_name=Excavate-v0 --new_h5_path=/home/caiwei/data/soft_body_envs/Excavate-v0/ --obs_mode=pointcloud
+traj 179 finished at step 45420
+last traj starts at 45345
+total 199 trajs
+
 For each task we will **(1) acquire data** either by:
 
   - (a) Generating training data from scratch with scripted oracles (via `policy_eval.py`), **OR**

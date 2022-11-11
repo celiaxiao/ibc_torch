@@ -23,7 +23,7 @@ import gym
 flags.DEFINE_string('h5_path', None, 'h5 demo path')
 flags.DEFINE_string('json_path', None, 'json demo path')
 flags.DEFINE_string('env_name', 'Hang-v0', 'env name')
-flags.DEFINE_enum('obs_mode', default='particles', enum_values=['particles', 'state'], help='')
+flags.DEFINE_enum('obs_mode', default='particles', enum_values=['particles', 'state', 'pointcloud'], help='')
 flags.DEFINE_enum('control_mode', default='pd_joint_delta_pos', enum_values=['pd_joint_delta_pos'], help='env control_mode')
 flags.DEFINE_string('raw_data_path', None, 'Path to save raw obs/act')
 flags.DEFINE_string('dataset_path', None, 'Path to save torch dataset')
@@ -41,6 +41,7 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
     all_actions = []
     all_rewards = []
     all_dones = []
+    all_extras = []
 
     for episode in json_data['episodes']:
         episode_id = 'traj_' + str(episode['episode_id'])
@@ -48,11 +49,15 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
         print("starting episode", episode_id)
         for action in h5_demo[episode_id]['actions']:
             obs = target_env.get_obs()
-
-            all_obs.append(obs)
+            # stack the xyz and rgb into single vector
+            if FLAGS.obs_mode == 'pointcloud':
+                all_obs.append(np.hstack((obs['pointcloud']['xyz'], obs['pointcloud']['rgb'])))
+                all_extras.append(obs['extra'])
+            else:
+                all_obs.append(obs)
             all_actions.append(action)
             
-            if len(all_obs) == 1:
+            if not isinstance(obs, dict)  and len(all_obs) == 1:
                 # Need to manually put these into config files
                 print('obs shape', obs.shape)
                 print('action shape', action.shape)
@@ -85,6 +90,8 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
             f['actions'] = all_actions
             f['rewards'] = all_rewards
             f['terminals'] = all_dones
+            if FLAGS.obs_mode == 'pointcloud':
+                f['extra'] = all_extras
 
 if __name__ == '__main__':
 
@@ -95,14 +102,22 @@ if __name__ == '__main__':
     if FLAGS.new_h5_path and not os.path.exists(FLAGS.new_h5_path):
         os.makedirs(FLAGS.new_h5_path)
 
-    # Currently only supporting particles obs mode
+    # Currently only supporting particles and pointcloud obs mode
     fn = None
-    if FLAGS.env_name == 'Hang-v0':
-        fn = HangEnvParticle
-    elif FLAGS.env_name == 'Fill-v0':
-        fn = FillEnvParticle
-    elif FLAGS.env_name == 'Excavate-v0':
-        fn = ExcavateEnvParticle
+    if FLAGS.obs_mode == 'particles':
+        if FLAGS.env_name == 'Hang-v0':
+            fn = HangEnvParticle
+        elif FLAGS.env_name == 'Fill-v0':
+            fn = FillEnvParticle
+        elif FLAGS.env_name == 'Excavate-v0':
+            fn = ExcavateEnvParticle
+    elif FLAGS.obs_mode == 'pointcloud':
+        if FLAGS.env_name == 'Hang-v0':
+            fn = HangEnvPointcloud
+        elif FLAGS.env_name == 'Fill-v0':
+            fn = FillEnvPointcloud
+        elif FLAGS.env_name == 'Excavate-v0':
+            fn = ExcavateEnvPointcloud
 
     if fn is not None:
         target_env = fn(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
