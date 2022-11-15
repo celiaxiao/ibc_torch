@@ -27,6 +27,7 @@ class HangEnvPointcloud(HangEnv):
     '''
     def __init__(self, *args, **kwargs):
         kwargs['obs_mode'] = 'pointcloud'
+        self._max_episode_steps = 350
         super().__init__(*args, **kwargs)
 
     def get_obs(self):
@@ -85,6 +86,7 @@ class FillEnvPointcloud(FillEnv):
     '''
     def __init__(self, *args, **kwargs):
         kwargs['obs_mode'] = 'pointcloud'
+        self._max_episode_steps = 250
         super().__init__(*args, **kwargs)
 
     def get_obs(self):
@@ -119,6 +121,7 @@ class ExcavateEnvPointcloud(ExcavateEnv):
     '''
     def __init__(self, *args, **kwargs):
         kwargs['obs_mode'] = 'pointcloud'
+        self._max_episode_steps = 350
         super().__init__(*args, **kwargs)
 
     def get_obs(self):
