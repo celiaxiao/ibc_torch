@@ -16,6 +16,11 @@ traj 179 finished at step 45420
 last traj starts at 45345
 total 199 trajs
 
+CUDA_VISIBLE_DEVICES=0 python data/maniskill_full_pipeline.py  --h5_path=/home/caiwei/data/soft_body_envs/Fill-v0/trajectory.none.pd_joint_delta_pos.h5 --json_path=/home/caiwei/data/soft_body_envs/Fill-v0/trajectory.none.pd_joint_delta_pos.json  --env_name=Fill-v0 --new_h5_path=/home/caiwei/data/soft_body_envs/Fill-v0/
+total 193 * 2 trajs
+total 74149 steps
+last 10 traj starts at 70310
+
 For each task we will **(1) acquire data** either by:
 
   - (a) Generating training data from scratch with scripted oracles (via `policy_eval.py`), **OR**

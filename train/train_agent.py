@@ -2,8 +2,9 @@ import os
 import sys
 from absl import flags
 
-from agents import ibc_agent
+from agents import ibc_agent, mse_agent
 from agents.utils import save_config, tile_batch, get_sampling_spec
+from environments.maniskill.maniskill_env import FillEnvPointcloud
 
 from network import mlp_ebm
 from network.layers import pointnet
@@ -94,7 +95,14 @@ FLAGS = flags.FLAGS
 FLAGS(sys.argv)
 torch.autograd.set_detect_anomaly(True)
 def load_dataset(dataset_dir):
-    dataset = torch.load(dataset_dir)
+    if 'h5' in dataset_dir:
+        from diffuser.datasets.d4rl import get_dataset_from_h5
+        env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
+        dataset = get_dataset_from_h5(env, h5path=dataset_dir)
+        # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
+        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
+    else:
+        dataset = torch.load(dataset_dir)
     return dataset
     
 def train(config):
@@ -142,7 +150,7 @@ def train(config):
         visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
 
         network = mlp_ebm.MLPEBM(
-        (config['visual_output_dim'] + config['obs_dim'] - visual_input_dim + config['act_dim']), 1, 
+        (config['visual_output_dim'] + config['act_dim']), 1, 
         width=config['width'], depth=config['depth'],
         normalizer=config['mlp_normalizer'], rate=config['rate'],
         dense_layer_type=config['dense_layer_type']).to(device)
@@ -167,18 +175,22 @@ def train(config):
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=config['lr'])
 
-    # get ibc agent
-    agent = ibc_agent.ImplicitBCAgent(
-        action_spec=config['act_dim'], 
-        cloning_network=network,
-        optimizer=optim, 
-        num_counter_examples=config['num_counter_sample'],
-        min_action=min_action, max_action=max_action, 
-        add_grad_penalty=config['add_grad_penalty'],
-        fraction_dfo_samples=config['fraction_dfo_samples'], fraction_langevin_samples=config['fraction_langevin_samples'], 
-        return_full_chain=False, 
-        run_full_chain_under_gradient=config['run_full_chain_under_gradient']
+    agent = mse_agent.MSEAgent(
+        network=network,
+        optim=optim,
     )
+    # get ibc agent
+    # agent = ibc_agent.ImplicitBCAgent(
+    #     action_spec=config['act_dim'], 
+    #     cloning_network=network,
+    #     optimizer=optim, 
+    #     num_counter_examples=config['num_counter_sample'],
+    #     min_action=min_action, max_action=max_action, 
+    #     add_grad_penalty=config['add_grad_penalty'],
+    #     fraction_dfo_samples=config['fraction_dfo_samples'], fraction_langevin_samples=config['fraction_langevin_samples'], 
+    #     return_full_chain=False, 
+    #     run_full_chain_under_gradient=config['run_full_chain_under_gradient']
+    # )
 
     # load dataset
     dataset = load_dataset(config['dataset_dir'])
@@ -204,8 +216,7 @@ def train(config):
 
             if config['visual_type'] is not None:
                 visual_embed = network_visual(experience[0][:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
-                experience = (torch.concat([visual_embed, experience[0][:,visual_input_dim:]], -1), experience[1])
-
+                experience = (visual_embed, experience[1])
             loss_dict = agent.train(experience)
             grad_norm, grad_max, weight_norm, weight_max = network_info(network)
             
@@ -252,10 +263,10 @@ if __name__ == '__main__':
     config = FLAGS.flag_values_dict()
     print(config)
 
-    if config['action_spec_file'] is not None:
-        with open(config['action_spec_file'], 'rb') as f:
-            action_stat = np.load(f, allow_pickle=True).item()
-            config['max_action'] = action_stat['max']
-            config['min_action'] = action_stat['min']
+    # if config['action_spec_file'] is not None:
+    #     with open(config['action_spec_file'], 'rb') as f:
+    #         action_stat = np.load(f, allow_pickle=True).item()
+    #         config['max_action'] = action_stat['max']
+    #         config['min_action'] = action_stat['min']
 
     train(config)

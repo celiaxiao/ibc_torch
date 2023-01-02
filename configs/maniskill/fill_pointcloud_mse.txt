@@ -1,0 +1,23 @@
+# Sample config file for maniskill hang pointcloud obs mode
+
+# General exp info
+--env_name=Fill-v0
+--obs_mode=pointcloud
+
+--dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
+
+# Network input dimensions
+--obs_dim=1024
+--act_dim=7
+--visual_num_points=1024
+--visual_num_channels=3
+--visual_output_dim=128
+
+# Visual network configs
+--visual_type=pointnet
+
+#train config
+--batch_size=512
+--num_counter_sample=8
+--lr=5e-4
+--fraction_langevin_samples=1.0

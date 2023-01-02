@@ -1,7 +1,6 @@
 '''
 Full pipeline to process maniskill demos in .h5 and .json to customized dataset.
 Argument specification: TODO
-
 exmaple to transform h5:
 CUDA_VISIBLE_DEVICES=0 python data/maniskill_full_pipeline.py \
  --h5_path=data/softbody/Hang-v0/trajectory.none.pd_joint_delta_pos.h5 --json_path=data/softbody/Hang-v0/trajectory.none.pd_joint_delta_pos.json \
@@ -44,41 +43,55 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
     all_extras = []
 
     for episode in json_data['episodes']:
-        episode_id = 'traj_' + str(episode['episode_id'])
-        target_env.reset(seed=episode["episode_seed"])
-        print("starting episode", episode_id)
-        for action in h5_demo[episode_id]['actions']:
-            obs = target_env.get_obs()
-            # stack the xyz and rgb into single vector
-            if FLAGS.obs_mode == 'pointcloud':
-                all_obs.append(np.hstack((obs['pointcloud']['xyz'], obs['pointcloud']['rgb'])))
-                all_extras.append(obs['extra'])
-            else:
-                all_obs.append(obs)
-            all_actions.append(action)
-            
-            if not isinstance(obs, dict)  and len(all_obs) == 1:
-                # Need to manually put these into config files
-                print('obs shape', obs.shape)
-                print('action shape', action.shape)
+        for i in range(1):
+            episode_id = 'traj_' + str(episode['episode_id'])
+            target_env.reset(seed=episode["episode_seed"])
+            print("starting episode", episode_id)
+            action_count = 0
+            for action in h5_demo[episode_id]['actions']:
+                obs = target_env.get_obs()
+                # stack the xyz and rgb into single vector
+                if FLAGS.obs_mode == 'pointcloud':
+                    all_obs.append(np.hstack((obs['pointcloud']['xyz'], obs['pointcloud']['rgb'])))
+                    all_extras.append(obs['extra'])
+                else:
+                    all_obs.append(obs)
+                all_actions.append(action)
+                
+                if not isinstance(obs, dict)  and len(all_obs) == 1:
+                    # Need to manually put these into config files
+                    print('obs shape', obs.shape)
+                    print('action shape', action.shape)
 
-            _, rew, done, _ = target_env.step(action)
-            all_rewards.append(rew)
-            all_dones.append(done)
-            if done:
-                break
-        # manually mark the end step to done=True
-        if not all_dones[-1]:
-            all_dones[-1] = True
-            warnings.warn(f'manually mark {episode_id} to success')
+                if i > 0 and action_count > 20: # start to add noise after 50 steps
+                    rand_noise = np.zeros_like(action)
+                    if len(action) == 8:
+                        rand_noise = np.concatenate((np.random.normal(scale=(0.1, 0.2, 0.5, 1, 1, 1.5, 2)), np.zeros(1)))
+                    elif len(action) == 7:
+                        add_noise = np.random.rand()
+                        if add_noise > 0.7:
+                            rand_noise = np.random.normal(scale=(0.1, 0.2, 0.5, 1, 1, 1, 1))
+                    action = np.add(action, rand_noise)
 
-        print(f'finished {episode_id}, success status {target_env.evaluate()}')
-        print(len(all_obs), len(all_actions), len(all_rewards), len(all_dones))
+                _, rew, done, _ = target_env.step(action)
+                action_count += 1
+                all_rewards.append(rew)
+                all_dones.append(done)
+                if done:
+                    break
+
+            # manually mark the end step to done=True
+            if not all_dones[-1]:
+                all_dones[-1] = True
+                warnings.warn(f"manually mark {episode_id} to success")
+
+            print(f'finished {episode_id}, success status {target_env.evaluate()}')
+            print(len(all_obs), len(all_actions), len(all_rewards), len(all_dones))
 
     
     if raw_data_path:
-        np.save(f'{raw_data_path}/{prefix}_observations.npy', all_obs)
-        np.save(f'{raw_data_path}/{prefix}_actions.npy', all_actions)
+        np.save(f"{raw_data_path}/{prefix}_observations.npy", all_obs)
+        np.save(f"{raw_data_path}/{prefix}_actions.npy", all_actions)
 
     if dataset_path:
         dataset = maniskill_dataset(all_obs, all_actions)
