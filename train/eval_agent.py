@@ -6,12 +6,14 @@ from absl import flags
 
 from agents import ibc_agent, eval_policy
 from agents.ibc_policy import IbcPolicy
+from agents.mse_policy import MsePolicy
 from agents.utils import save_json
 from network import mlp_ebm, ptnet_mlp_ebm
 from network.layers import pointnet
 from environments.maniskill.maniskill_env import *
 from train import make_video as video_module
 from train import get_eval_actor as eval_actor_module
+from train import utils
 from eval import eval_env as eval_env_module
 from torch.utils.data import DataLoader, Dataset
 from data.dataset_maniskill import *
@@ -39,6 +41,8 @@ flags.DEFINE_integer('main_test_seed', 0, 'seed for episode seed generator if ev
 flags.DEFINE_boolean('image_obs', False, 'using image observation')
 flags.DEFINE_float('goal_tolerance', 0.02, 'tolerance for current position vs the goal')
 flags.DEFINE_boolean('viz_img', False, 'visualize image in eval')
+flags.DEFINE_enum('agent_type', default='ibc', enum_values=['ibc', 'mse'], 
+                  help='Type of agent to use')
 
 # General eval info
 flags.DEFINE_integer('num_episodes', 1, 'number of new seed episodes')
@@ -98,12 +102,8 @@ flags.DEFINE_boolean('optimize_again', True, "optimize again")
 flags.DEFINE_float('inference_langevin_noise_scale', 0.5, '')
 flags.DEFINE_float('again_stepsize_init', float(1e-05), '')
 
-
-
 FLAGS = flags.FLAGS
 FLAGS(sys.argv)
-
-
 class Evaluation:
     def __init__(self, config):
         self.config = config
@@ -163,69 +163,34 @@ class Evaluation:
     def create_and_load_network(self):
         config = self.config
 
-        # create network
-        network_visual=None
-        if config['visual_type'] == 'pointnet':
-            network_visual = pointnet.pointNetLayer(in_dim=[config['visual_num_channels'], config['visual_num_points']], out_dim=config['visual_output_dim'], normalize=config['visual_normalize'])
-
-            visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
-
-            network = mlp_ebm.MLPEBM(
-            (config['visual_output_dim'] + config['obs_dim'] - visual_input_dim + config['act_dim']), 1, 
-            width=config['width'], depth=config['depth'],
-            normalizer=config['mlp_normalizer'], rate=config['rate'],
-            dense_layer_type=config['dense_layer_type']).to(device)
-    
-        else:
-            network = mlp_ebm.MLPEBM(
-            (config['obs_dim'] + config['act_dim']), 1, 
-            width=config['width'], depth=config['depth'],
-            normalizer=config['mlp_normalizer'], rate=config['rate'],
-            dense_layer_type=config['dense_layer_type']).to(device)
-
         checkpoint_path = f"work_dirs/formal_exp/{config['env_name']}/{config['train_exp_name']}/checkpoints/"
+        config['checkpoint_path'] = checkpoint_path
+        config['resume_from_step'] = config['eval_step']
 
-        if config['eval_step'] is not None:
-            if network_visual is not None:
-                # TODO: remove hardcoded visual type
-                network_visual.load_state_dict(torch.load(
-                    f"{checkpoint_path}step_{config['eval_step']}_pointnet.pt"
-                ))
-            network.load_state_dict(torch.load(
-                f"{checkpoint_path}step_{config['eval_step']}_mlp.pt"
-            ))
-        elif config['eval_epoch'] is not None:
-            if network_visual is not None:
-                # TODO: remove hardcoded visual type
-                network_visual.load_state_dict(torch.load(
-                    f"{checkpoint_path}epoch_{config['eval_epoch']}_pointnet.pt"
-                ))
-            network.load_state_dict(torch.load(
-                f"{checkpoint_path}epoch_{config['eval_epoch']}_mlp.pt"
-            ))
-        else:
-            print("checkpoint to evaluate is not specified. Exiting.")
-            exit(0)
+        network, network_visual = utils.create_network(config)
         
         return network_visual, network
 
     def create_policy(self):
-        ibc_policy = IbcPolicy( 
-            actor_network = self.network,
-            action_spec= self.config['act_dim'], #hardcode
-            min_action=torch.tensor([self.config['min_action']] * self.config['act_dim']).float(),
-            max_action=torch.tensor([self.config['max_action']] * self.config['act_dim']).float(),
-            num_action_samples=self.config['num_policy_sample'],
-            use_dfo=self.config['use_dfo'],
-            dfo_iterations=self.config['eval_dfo_iterations'],
-            use_langevin=self.config['use_langevin'],
-            langevin_iterations=self.config['eval_langevin_iterations'],
-            optimize_again=self.config['optimize_again'],
-            inference_langevin_noise_scale=self.config['inference_langevin_noise_scale'],
-            again_stepsize_init=self.config['again_stepsize_init']
-        )
+        if self.config['agent_type'] == 'ibc':
+            eval_policy = IbcPolicy( 
+                actor_network = self.network,
+                action_spec= self.config['act_dim'], #hardcode
+                min_action=torch.tensor([self.config['min_action']] * self.config['act_dim']).float(),
+                max_action=torch.tensor([self.config['max_action']] * self.config['act_dim']).float(),
+                num_action_samples=self.config['num_policy_sample'],
+                use_dfo=self.config['use_dfo'],
+                dfo_iterations=self.config['eval_dfo_iterations'],
+                use_langevin=self.config['use_langevin'],
+                langevin_iterations=self.config['eval_langevin_iterations'],
+                optimize_again=self.config['optimize_again'],
+                inference_langevin_noise_scale=self.config['inference_langevin_noise_scale'],
+                again_stepsize_init=self.config['again_stepsize_init']
+            )
+        elif self.config['agent_type'] == 'mse':
+            eval_policy = MsePolicy(actor_network=self.network)
 
-        return ibc_policy
+        return eval_policy
 
     def run_eval(self):
         '''

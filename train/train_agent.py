@@ -6,8 +6,8 @@ from agents import ibc_agent, mse_agent
 from agents.utils import save_config, tile_batch, get_sampling_spec
 from environments.maniskill.maniskill_env import FillEnvPointcloud
 
-from network import mlp_ebm
-from network.layers import pointnet
+from network import mlp_ebm, mlp
+from network.layers import pointnet, resnet
 # import more visual layers here if needed
 
 import torch
@@ -17,6 +17,8 @@ from torch.utils.data import DataLoader, Dataset
 
 from data.transform_dataset import Ibc_dataset, d4rl_dataset
 from data.dataset_maniskill import *
+
+from train import utils
 
 import wandb
 
@@ -76,6 +78,8 @@ flags.DEFINE_integer('width', 512, 'Mlp network width')
 flags.DEFINE_integer('depth', 8, 'Mlp network resnet depth')
 
 # Ibc Agent configs
+flags.DEFINE_enum('agent_type', default='ibc', enum_values=['ibc', 'mse'], 
+                  help='Type of agent to use')
 flags.DEFINE_integer('num_counter_sample', 8, 
                      'Number of counter sample in mcmc')
 flags.DEFINE_float('fraction_dfo_samples', 0., 
@@ -123,6 +127,7 @@ def train(config):
     # Create experiment and checkpoint directory
     path = f"work_dirs/formal_exp/{config['env_name']}/{config['exp_name']}/"
     checkpoint_path = path + 'checkpoints/'
+    config['checkpoint_path'] = checkpoint_path
     logging_path = path + 'wandb/'
     if not os.path.exists(path):
         os.makedirs(path)
@@ -138,83 +143,36 @@ def train(config):
 
     # action sampling based on min/max action +- buffer.
     min_action, max_action = get_sampling_spec({'minimum':-1*torch.ones(config['act_dim']), 'maximum':torch.ones(config['act_dim'])}, 
-        min_action, max_action, config['uniform_boundary_buffer'])
+    min_action, max_action, config['uniform_boundary_buffer'])
+    config['min_action'] = min_action
+    config['max_action'] = max_action
     print('updating boundary', min_action, max_action)
 
     # prepare training network
-    resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
-    network_visual=None
-    if config['visual_type'] == 'pointnet':
-        network_visual = pointnet.pointNetLayer(in_dim=[config['visual_num_channels'], config['visual_num_points']], out_dim=config['visual_output_dim'], normalize=config['visual_normalize'])
-
-        visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
-
-        network = mlp_ebm.MLPEBM(
-        (config['visual_output_dim'] + config['act_dim']), 1, 
-        width=config['width'], depth=config['depth'],
-        normalizer=config['mlp_normalizer'], rate=config['rate'],
-        dense_layer_type=config['dense_layer_type']).to(device)
-
-        if resume_step > 0:
-            network_visual.load_state_dict(torch.load(
-            f"{checkpoint_path}step_{resume_step}_pointnet.pt"))
-            network.load_state_dict(torch.load(
-            f"{checkpoint_path}step_{resume_step}_mlp.pt"))
-    
-    else:
-        network = mlp_ebm.MLPEBM(
-        (config['obs_dim'] + config['act_dim']), 1, 
-        width=config['width'], depth=config['depth'],
-        normalizer=config['mlp_normalizer'], rate=config['rate'],
-        dense_layer_type=config['dense_layer_type']).to(device)
-        if resume_step > 0:
-            network.load_state_dict(torch.load(
-            f"{checkpoint_path}step_{resume_step}_mlp.pt"))
-
-
+    network, network_visual = utils.create_network(config)
     print (network,[param.shape for param in list(network.parameters())] )
     optim = torch.optim.Adam(network.parameters(), lr=config['lr'])
 
-    agent = mse_agent.MSEAgent(
-        network=network,
-        optim=optim,
-    )
-    # get ibc agent
-    # agent = ibc_agent.ImplicitBCAgent(
-    #     action_spec=config['act_dim'], 
-    #     cloning_network=network,
-    #     optimizer=optim, 
-    #     num_counter_examples=config['num_counter_sample'],
-    #     min_action=min_action, max_action=max_action, 
-    #     add_grad_penalty=config['add_grad_penalty'],
-    #     fraction_dfo_samples=config['fraction_dfo_samples'], fraction_langevin_samples=config['fraction_langevin_samples'], 
-    #     return_full_chain=False, 
-    #     run_full_chain_under_gradient=config['run_full_chain_under_gradient']
-    # )
+    # prepare agent
+    agent = create_agent(config, network, optim)
 
     # load dataset
-    dataset = load_dataset(config['dataset_dir'])
-    if config['data_amount']:
-        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
-        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
-        generator=torch.Generator(device='cuda'), 
-        shuffle=True)
-
-    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
-    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
+    dataloader = load_dataset(config)
 
     # prepare visualization
     wandb.init(project='ibc', name=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
 
     # main training loop
     epoch = 0
+    resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
     while agent.train_step_counter < config['total_steps']:
         for experience in iter(dataloader):
 
             experience[0] = experience[0].to(device=device, dtype=torch.float)
+            # print(experience[0], experience[1], type(experience[0]), type(experience[1]))
 
             if config['visual_type'] is not None:
+                visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
                 visual_embed = network_visual(experience[0][:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
                 experience = (visual_embed, experience[1])
             loss_dict = agent.train(experience)
@@ -238,6 +196,86 @@ def train(config):
         # if epoch % config['epoch_checkpoint'] == 0:
         #     torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_mlp.pt')
         #     torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_pointnet.pt')
+
+def create_network(config):
+    network_visual=None
+    resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
+
+    if config['visual_type'] == 'pointnet':
+        network_visual = pointnet.pointNetLayer(in_dim=[config['visual_num_channels'], config['visual_num_points']], out_dim=config['visual_output_dim'], normalize=config['visual_normalize'])
+
+        visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
+
+        if config['agent_type'] == 'ibc':
+            network = mlp_ebm.MLPEBM(
+            (config['visual_output_dim'] + config['obs_dim'] - visual_input_dim + config['act_dim']), 1, 
+            width=config['width'], depth=config['depth'],
+            normalizer=config['mlp_normalizer'], rate=config['rate'],
+            dense_layer_type=config['dense_layer_type']).to(device)
+
+        elif config['agent_type'] == 'mse':
+            # Define MLP.
+            network = mlp.MLP(input_dim=(config['visual_output_dim'] + config['obs_dim'] - visual_input_dim), out_dim=config['act_dim'], width=config['width'], depth=config['depth'],
+            normalizer=config['mlp_normalizer'], rate=config['rate'])
+
+        if resume_step > 0:
+            network_visual.load_state_dict(torch.load(
+            f"{config['checkpoint_path']}step_{resume_step}_pointnet.pt"))
+            network.load_state_dict(torch.load(
+            f"{config['checkpoint_path']}step_{resume_step}_mlp.pt"))
+    
+    else:
+        if config['agent_type'] == 'ibc':
+            network = mlp_ebm.MLPEBM(
+            (config['obs_dim'] + config['act_dim']), 1, 
+            width=config['width'], depth=config['depth'],
+            normalizer=config['mlp_normalizer'], rate=config['rate'],
+            dense_layer_type=config['dense_layer_type']).to(device)
+        elif config['agent_type'] == 'mse':
+            # Define MLP.
+            network = mlp.MLP(input_dim=config['obs_dim'], out_dim=config['act_dim'], width=config['width'], depth=config['depth'],
+            normalizer=config['mlp_normalizer'], rate=config['rate'])
+        if resume_step > 0:
+            network.load_state_dict(torch.load(
+            f"{config['checkpoint_path']}step_{resume_step}_mlp.pt"))
+
+    return network, network_visual
+
+def create_agent(config, network, optim):
+    if config['agent_type'] == 'ibc':
+        agent = ibc_agent.ImplicitBCAgent(
+        action_spec=config['act_dim'], 
+        cloning_network=network,
+        optimizer=optim, 
+        num_counter_examples=config['num_counter_sample'],
+        min_action=torch.tensor(config['min_action']), 
+        max_action=torch.tensor(config['max_action']), 
+        add_grad_penalty=config['add_grad_penalty'],
+        fraction_dfo_samples=config['fraction_dfo_samples'], fraction_langevin_samples=config['fraction_langevin_samples'], 
+        return_full_chain=False, 
+        run_full_chain_under_gradient=config['run_full_chain_under_gradient']
+        )
+    elif config['agent_type'] == 'mse':
+        agent = mse_agent.MSEAgent(network=network, optim=optim)
+    else:
+        print(f"Agent type {config['agent_type']} not supported. Exiting.")
+        exit(0)
+
+    return agent
+
+def load_dataset(config):
+    dataset = torch.load(config['dataset_dir'])
+    if config['data_amount']:
+        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
+        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
+    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
+        generator=torch.Generator(device='cuda'), 
+        shuffle=True)
+
+    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
+    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
+
+    return dataloader
 
 
 @torch.no_grad()
