@@ -21,6 +21,12 @@ total 193 * 2 trajs
 total 74149 steps
 last 10 traj starts at 70310
 
+Fill-v0 extra information
+obs['agent']['qpos'].shape (7,)
+obs['agent']['qvel'].shape (7,)
+obs['extra']['tcp_pose'].shape (7,)
+obs['extra']['target'].shape (2,)
+
 For each task we will **(1) acquire data** either by:
 
   - (a) Generating training data from scratch with scripted oracles (via `policy_eval.py`), **OR**

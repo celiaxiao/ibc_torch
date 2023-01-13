@@ -33,6 +33,7 @@ flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
 flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
 flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
 flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
+flags.DEFINE_boolean('use_extra', False, 'whether using extra information as observations')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
@@ -43,6 +44,7 @@ flags.DEFINE_float('goal_tolerance', 0.02, 'tolerance for current position vs th
 flags.DEFINE_boolean('viz_img', False, 'visualize image in eval')
 flags.DEFINE_enum('agent_type', default='ibc', enum_values=['ibc', 'mse'], 
                   help='Type of agent to use')
+flags.DEFINE_list('extra_info', ['qpos', 'qvel', 'tcp_pose', 'target'], "list of extra information to include")
 
 # General eval info
 flags.DEFINE_integer('num_episodes', 1, 'number of new seed episodes')
@@ -104,6 +106,36 @@ flags.DEFINE_float('again_stepsize_init', float(1e-05), '')
 
 FLAGS = flags.FLAGS
 FLAGS(sys.argv)
+
+def load_dataset(config):
+    if 'h5' in config['dataset_dir']:
+        from diffuser.datasets.d4rl import get_dataset_from_h5
+        env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
+        dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
+        # only keep xyz
+        dataset['observations'] = dataset['observations'][:, :, :3]
+        # flatten observation
+        batch_size = dataset['observations'].shape[0]
+        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
+        if config['use_extra']:
+            if len(config['extra_info']) < 4:
+                # use the infomation listed in the config['extra_info] array
+                print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
+                extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
+                        'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
+                dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
+            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
+            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
+        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
+    else:
+        dataset = torch.load(config['dataset_dir'])
+    
+    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
+    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
+
+    return dataset
+
 class Evaluation:
     def __init__(self, config):
         self.config = config
@@ -140,19 +172,19 @@ class Evaluation:
             if self.config['obs_mode'] == 'particles':
                 fn = HangEnvParticle
             elif self.config['obs_mode'] == 'pointcloud':
-                pass 
+                fn = HangEnvPointcloud
         
         elif self.config['env_name'] == 'Fill-v0':
             if self.config['obs_mode'] == 'particles':
                 fn = FillEnvParticle
             elif self.config['obs_mode'] == 'pointcloud':
-                pass 
+                fn = FillEnvPointcloud 
 
         elif self.config['env_name'] == 'Excavate-v0':
             if self.config['obs_mode'] == 'particles':
                 fn = ExcavateEnvParticle
             elif self.config['obs_mode'] == 'pointcloud':
-                pass 
+                fn = ExcavateEnvPointcloud 
         
         else:
             print(f"Env {self.config['env_name']} obs mode {self.config['obs_mode']} not supported! Exiting")
@@ -256,6 +288,21 @@ class Evaluation:
 
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
+            if self.config['use_extra']:
+                extra = obs['extra']
+            if self.config['obs_mode'] == 'pointcloud':
+                # only keep xyz
+                obs = obs['pointcloud']['xyz'][:, :3]
+                # flatten obs
+                obs = obs.reshape(-1)
+            if self.config['use_extra']:
+                # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
+                if len(config['extra_info']) < 4:
+                    extra_dict = {'qpos': extra[:7], 'qvel': extra[7:14], 
+                        'tcp_pose': extra[14:21], 'target': extra[21:]}
+                    extra = np.concatenate([extra_dict[info_name] for info_name in config['extra_info']], axis = -1)
+                obs = np.concatenate([obs, extra], axis=-1)
+            
             obs = torch.tensor(obs).to(device, dtype=torch.float).expand(1, -1)
             
             if self.network_visual is not None:
@@ -276,9 +323,9 @@ class Evaluation:
             # save info and update steps
             total_reward += rew
             shifted_reward += rew - self.config['single_step_max_reward']
-            imgs.append(self.env.render("rgb_array"))
+            # imgs.append(self.env.render("rgb_array"))
         
-        self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
+        # self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
         return total_reward, success, num_steps, shifted_reward
 
@@ -288,24 +335,27 @@ class Evaluation:
         '''
 
         # Load dataset and split into training and validation
-        dataset = torch.load(self.config['dataset_dir'])
+        dataset = load_dataset(self.config)
         if self.config['data_amount']:
+            print("loading validation dataset......")
+            # print("self.config['data_amount'], len(dataset)", self.config['data_amount'], len(dataset))
             assert self.config['data_amount'] <= len(dataset), f"Not enough data for {self.config['data_amount']} pairs!"
             train_dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount']))
             validate_dataset = torch.utils.data.Subset(dataset, range(self.config['data_amount'], len(dataset)))
+            assert validate_dataset is not None
         else:
             train_dataset = dataset
             validate_dataset = None
 
-        train_dataset = torch.utils.data.Subset(train_dataset, np.random.choice(range(len(train_dataset)), size=200))
-        if validate_dataset and len(validate_dataset) > 200:
-            validate_dataset = torch.utils.data.Subset(validate_dataset, np.random.choice(range(len(validate_dataset)), size=200))
+        # train_dataset = torch.utils.data.Subset(train_dataset, np.random.choice(range(len(train_dataset)), size=200))
+        # if validate_dataset and len(validate_dataset) > 200:
+        #     validate_dataset = torch.utils.data.Subset(validate_dataset, np.random.choice(range(len(validate_dataset)), size=200))
         # print(len(dataset))
-        train_dataloader = DataLoader(train_dataset, batch_size=10, 
+        train_dataloader = DataLoader(train_dataset, batch_size=64, 
             generator=torch.Generator(device='cuda'), 
             shuffle=True)
         if validate_dataset:
-            validate_dataloader = DataLoader(validate_dataset, batch_size=10, 
+            validate_dataloader = DataLoader(validate_dataset, batch_size=64, 
             generator=torch.Generator(device='cuda'), 
             shuffle=True)  
 
@@ -341,7 +391,7 @@ class Evaluation:
 
                 act_pred = self.ibc_policy.act({'observations':obs})
 
-                # print(loss_fn(act_gt, act_pred).item())
+                # print("validate", loss_fn(act_gt, act_pred).item())
                 validate_mse_loss.append(loss_fn(act_gt, act_pred).item())
         
         with open(f"{self.eval_info_path}mse_info.json", 'w') as f:

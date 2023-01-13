@@ -5,9 +5,11 @@
 --obs_mode=pointcloud
 
 --dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
+--data_amount=29457
+--extra_info=qvel, tcp_pose, target
 
 # Network input dimensions
---obs_dim=1024
+--obs_dim=3072
 --act_dim=7
 --visual_num_points=1024
 --visual_num_channels=3
@@ -17,7 +19,8 @@
 --visual_type=pointnet
 
 #train config
---batch_size=512
+--batch_size=2048
 --num_counter_sample=8
 --lr=5e-4
---fraction_langevin_samples=1.0
+--agent_type=mse
+--extra_dim=23

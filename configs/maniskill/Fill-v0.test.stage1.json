@@ -1,0 +1,1319 @@
+{
+  "env_info": {
+    "env_id": "Fill-v0",
+    "max_episode_steps": 250,
+    "env_kwargs": {
+      "obs_mode": "particles",
+      "reward_mode": "dense",
+      "control_mode": "pd_joint_pos"
+    }
+  },
+  "commit_info": {
+    "commit_id": "8e7759c8bdd800c2d3024536d0eae71f240139e0",
+    "branch": "main"
+  },
+  "episodes": [
+    {
+      "episode_id": 0,
+      "episode_seed": 1000,
+      "reset_kwargs": {
+        "seed": 1000
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 188,
+      "info": {
+        "elapsed_steps": 188,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 1,
+      "episode_seed": 1001,
+      "reset_kwargs": {
+        "seed": 1001
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 177,
+      "info": {
+        "elapsed_steps": 177,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 2,
+      "episode_seed": 1002,
+      "reset_kwargs": {
+        "seed": 1002
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 196,
+      "info": {
+        "elapsed_steps": 196,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 4,
+      "episode_seed": 1004,
+      "reset_kwargs": {
+        "seed": 1004
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 197,
+      "info": {
+        "elapsed_steps": 197,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 5,
+      "episode_seed": 1005,
+      "reset_kwargs": {
+        "seed": 1005
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 182,
+      "info": {
+        "elapsed_steps": 182,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 6,
+      "episode_seed": 1006,
+      "reset_kwargs": {
+        "seed": 1006
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 184,
+      "info": {
+        "elapsed_steps": 184,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 7,
+      "episode_seed": 1007,
+      "reset_kwargs": {
+        "seed": 1007
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 180,
+      "info": {
+        "elapsed_steps": 180,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 8,
+      "episode_seed": 1008,
+      "reset_kwargs": {
+        "seed": 1008
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 186,
+      "info": {
+        "elapsed_steps": 186,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 9,
+      "episode_seed": 1009,
+      "reset_kwargs": {
+        "seed": 1009
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 189,
+      "info": {
+        "elapsed_steps": 189,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 10,
+      "episode_seed": 1010,
+      "reset_kwargs": {
+        "seed": 1010
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 174,
+      "info": {
+        "elapsed_steps": 174,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 11,
+      "episode_seed": 1011,
+      "reset_kwargs": {
+        "seed": 1011
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 175,
+      "info": {
+        "elapsed_steps": 175,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 12,
+      "episode_seed": 1012,
+      "reset_kwargs": {
+        "seed": 1012
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 219,
+      "info": {
+        "elapsed_steps": 219,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 13,
+      "episode_seed": 1013,
+      "reset_kwargs": {
+        "seed": 1013
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 191,
+      "info": {
+        "elapsed_steps": 191,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 14,
+      "episode_seed": 1014,
+      "reset_kwargs": {
+        "seed": 1014
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 184,
+      "info": {
+        "elapsed_steps": 184,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 15,
+      "episode_seed": 1015,
+      "reset_kwargs": {
+        "seed": 1015
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 203,
+      "info": {
+        "elapsed_steps": 203,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 16,
+      "episode_seed": 1016,
+      "reset_kwargs": {
+        "seed": 1016
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 195,
+      "info": {
+        "elapsed_steps": 195,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 19,
+      "episode_seed": 1019,
+      "reset_kwargs": {
+        "seed": 1019
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 210,
+      "info": {
+        "elapsed_steps": 210,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 20,
+      "episode_seed": 1020,
+      "reset_kwargs": {
+        "seed": 1020
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 191,
+      "info": {
+        "elapsed_steps": 191,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 22,
+      "episode_seed": 1022,
+      "reset_kwargs": {
+        "seed": 1022
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 235,
+      "info": {
+        "elapsed_steps": 235,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 23,
+      "episode_seed": 1023,
+      "reset_kwargs": {
+        "seed": 1023
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 202,
+      "info": {
+        "elapsed_steps": 202,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 25,
+      "episode_seed": 1025,
+      "reset_kwargs": {
+        "seed": 1025
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 234,
+      "info": {
+        "elapsed_steps": 234,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 27,
+      "episode_seed": 1027,
+      "reset_kwargs": {
+        "seed": 1027
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 196,
+      "info": {
+        "elapsed_steps": 196,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 28,
+      "episode_seed": 1028,
+      "reset_kwargs": {
+        "seed": 1028
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 184,
+      "info": {
+        "elapsed_steps": 184,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 29,
+      "episode_seed": 1029,
+      "reset_kwargs": {
+        "seed": 1029
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 207,
+      "info": {
+        "elapsed_steps": 207,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 30,
+      "episode_seed": 1030,
+      "reset_kwargs": {
+        "seed": 1030
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 224,
+      "info": {
+        "elapsed_steps": 224,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 31,
+      "episode_seed": 1031,
+      "reset_kwargs": {
+        "seed": 1031
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 252,
+      "info": {
+        "elapsed_steps": 252,
+        "success": true,
+        "TimeLimit.truncated": false
+      }
+    },
+    {
+      "episode_id": 33,
+      "episode_seed": 1033,
+      "reset_kwargs": {
+        "seed": 1033
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 186,
+      "info": {
+        "elapsed_steps": 186,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 34,
+      "episode_seed": 1034,
+      "reset_kwargs": {
+        "seed": 1034
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 188,
+      "info": {
+        "elapsed_steps": 188,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 36,
+      "episode_seed": 1036,
+      "reset_kwargs": {
+        "seed": 1036
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 187,
+      "info": {
+        "elapsed_steps": 187,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 38,
+      "episode_seed": 1038,
+      "reset_kwargs": {
+        "seed": 1038
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 192,
+      "info": {
+        "elapsed_steps": 192,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 39,
+      "episode_seed": 1039,
+      "reset_kwargs": {
+        "seed": 1039
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 181,
+      "info": {
+        "elapsed_steps": 181,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 40,
+      "episode_seed": 1040,
+      "reset_kwargs": {
+        "seed": 1040
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 198,
+      "info": {
+        "elapsed_steps": 198,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 44,
+      "episode_seed": 1044,
+      "reset_kwargs": {
+        "seed": 1044
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 198,
+      "info": {
+        "elapsed_steps": 198,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 45,
+      "episode_seed": 1045,
+      "reset_kwargs": {
+        "seed": 1045
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 184,
+      "info": {
+        "elapsed_steps": 184,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 46,
+      "episode_seed": 1046,
+      "reset_kwargs": {
+        "seed": 1046
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 205,
+      "info": {
+        "elapsed_steps": 205,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 47,
+      "episode_seed": 1047,
+      "reset_kwargs": {
+        "seed": 1047
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 193,
+      "info": {
+        "elapsed_steps": 193,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 48,
+      "episode_seed": 1048,
+      "reset_kwargs": {
+        "seed": 1048
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 175,
+      "info": {
+        "elapsed_steps": 175,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 50,
+      "episode_seed": 1050,
+      "reset_kwargs": {
+        "seed": 1050
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 216,
+      "info": {
+        "elapsed_steps": 216,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 51,
+      "episode_seed": 1051,
+      "reset_kwargs": {
+        "seed": 1051
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 179,
+      "info": {
+        "elapsed_steps": 179,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 52,
+      "episode_seed": 1052,
+      "reset_kwargs": {
+        "seed": 1052
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 174,
+      "info": {
+        "elapsed_steps": 174,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 53,
+      "episode_seed": 1053,
+      "reset_kwargs": {
+        "seed": 1053
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 250,
+      "info": {
+        "elapsed_steps": 250,
+        "success": true,
+        "TimeLimit.truncated": false
+      }
+    },
+    {
+      "episode_id": 54,
+      "episode_seed": 1054,
+      "reset_kwargs": {
+        "seed": 1054
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 199,
+      "info": {
+        "elapsed_steps": 199,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 55,
+      "episode_seed": 1055,
+      "reset_kwargs": {
+        "seed": 1055
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 231,
+      "info": {
+        "elapsed_steps": 231,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 56,
+      "episode_seed": 1056,
+      "reset_kwargs": {
+        "seed": 1056
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 174,
+      "info": {
+        "elapsed_steps": 174,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 58,
+      "episode_seed": 1058,
+      "reset_kwargs": {
+        "seed": 1058
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 198,
+      "info": {
+        "elapsed_steps": 198,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 59,
+      "episode_seed": 1059,
+      "reset_kwargs": {
+        "seed": 1059
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 181,
+      "info": {
+        "elapsed_steps": 181,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 60,
+      "episode_seed": 1060,
+      "reset_kwargs": {
+        "seed": 1060
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 184,
+      "info": {
+        "elapsed_steps": 184,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 61,
+      "episode_seed": 1061,
+      "reset_kwargs": {
+        "seed": 1061
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 181,
+      "info": {
+        "elapsed_steps": 181,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 62,
+      "episode_seed": 1062,
+      "reset_kwargs": {
+        "seed": 1062
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 171,
+      "info": {
+        "elapsed_steps": 171,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 63,
+      "episode_seed": 1063,
+      "reset_kwargs": {
+        "seed": 1063
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 180,
+      "info": {
+        "elapsed_steps": 180,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 64,
+      "episode_seed": 1064,
+      "reset_kwargs": {
+        "seed": 1064
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 178,
+      "info": {
+        "elapsed_steps": 178,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 65,
+      "episode_seed": 1065,
+      "reset_kwargs": {
+        "seed": 1065
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 211,
+      "info": {
+        "elapsed_steps": 211,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 66,
+      "episode_seed": 1066,
+      "reset_kwargs": {
+        "seed": 1066
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 177,
+      "info": {
+        "elapsed_steps": 177,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 69,
+      "episode_seed": 1069,
+      "reset_kwargs": {
+        "seed": 1069
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 186,
+      "info": {
+        "elapsed_steps": 186,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 70,
+      "episode_seed": 1070,
+      "reset_kwargs": {
+        "seed": 1070
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 192,
+      "info": {
+        "elapsed_steps": 192,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 71,
+      "episode_seed": 1071,
+      "reset_kwargs": {
+        "seed": 1071
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 182,
+      "info": {
+        "elapsed_steps": 182,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 72,
+      "episode_seed": 1072,
+      "reset_kwargs": {
+        "seed": 1072
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 225,
+      "info": {
+        "elapsed_steps": 225,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 74,
+      "episode_seed": 1074,
+      "reset_kwargs": {
+        "seed": 1074
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 199,
+      "info": {
+        "elapsed_steps": 199,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 75,
+      "episode_seed": 1075,
+      "reset_kwargs": {
+        "seed": 1075
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 178,
+      "info": {
+        "elapsed_steps": 178,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 76,
+      "episode_seed": 1076,
+      "reset_kwargs": {
+        "seed": 1076
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 246,
+      "info": {
+        "elapsed_steps": 246,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 78,
+      "episode_seed": 1078,
+      "reset_kwargs": {
+        "seed": 1078
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 193,
+      "info": {
+        "elapsed_steps": 193,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 79,
+      "episode_seed": 1079,
+      "reset_kwargs": {
+        "seed": 1079
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 180,
+      "info": {
+        "elapsed_steps": 180,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 80,
+      "episode_seed": 1080,
+      "reset_kwargs": {
+        "seed": 1080
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 183,
+      "info": {
+        "elapsed_steps": 183,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 82,
+      "episode_seed": 1082,
+      "reset_kwargs": {
+        "seed": 1082
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 169,
+      "info": {
+        "elapsed_steps": 169,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 84,
+      "episode_seed": 1084,
+      "reset_kwargs": {
+        "seed": 1084
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 197,
+      "info": {
+        "elapsed_steps": 197,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 85,
+      "episode_seed": 1085,
+      "reset_kwargs": {
+        "seed": 1085
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 181,
+      "info": {
+        "elapsed_steps": 181,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 86,
+      "episode_seed": 1086,
+      "reset_kwargs": {
+        "seed": 1086
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 204,
+      "info": {
+        "elapsed_steps": 204,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 90,
+      "episode_seed": 1090,
+      "reset_kwargs": {
+        "seed": 1090
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 194,
+      "info": {
+        "elapsed_steps": 194,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 91,
+      "episode_seed": 1091,
+      "reset_kwargs": {
+        "seed": 1091
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 185,
+      "info": {
+        "elapsed_steps": 185,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 92,
+      "episode_seed": 1092,
+      "reset_kwargs": {
+        "seed": 1092
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 202,
+      "info": {
+        "elapsed_steps": 202,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 93,
+      "episode_seed": 1093,
+      "reset_kwargs": {
+        "seed": 1093
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 181,
+      "info": {
+        "elapsed_steps": 181,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 94,
+      "episode_seed": 1094,
+      "reset_kwargs": {
+        "seed": 1094
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 198,
+      "info": {
+        "elapsed_steps": 198,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 95,
+      "episode_seed": 1095,
+      "reset_kwargs": {
+        "seed": 1095
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 177,
+      "info": {
+        "elapsed_steps": 177,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 96,
+      "episode_seed": 1096,
+      "reset_kwargs": {
+        "seed": 1096
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 174,
+      "info": {
+        "elapsed_steps": 174,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 97,
+      "episode_seed": 1097,
+      "reset_kwargs": {
+        "seed": 1097
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 231,
+      "info": {
+        "elapsed_steps": 231,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 98,
+      "episode_seed": 1098,
+      "reset_kwargs": {
+        "seed": 1098
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 175,
+      "info": {
+        "elapsed_steps": 175,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 99,
+      "episode_seed": 1099,
+      "reset_kwargs": {
+        "seed": 1099
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 164,
+      "info": {
+        "elapsed_steps": 164,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 100,
+      "episode_seed": 1100,
+      "reset_kwargs": {
+        "seed": 1100
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 201,
+      "info": {
+        "elapsed_steps": 201,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 101,
+      "episode_seed": 1101,
+      "reset_kwargs": {
+        "seed": 1101
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 195,
+      "info": {
+        "elapsed_steps": 195,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 102,
+      "episode_seed": 1102,
+      "reset_kwargs": {
+        "seed": 1102
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 179,
+      "info": {
+        "elapsed_steps": 179,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 103,
+      "episode_seed": 1103,
+      "reset_kwargs": {
+        "seed": 1103
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 243,
+      "info": {
+        "elapsed_steps": 243,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 104,
+      "episode_seed": 1104,
+      "reset_kwargs": {
+        "seed": 1104
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 183,
+      "info": {
+        "elapsed_steps": 183,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 106,
+      "episode_seed": 1106,
+      "reset_kwargs": {
+        "seed": 1106
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 202,
+      "info": {
+        "elapsed_steps": 202,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 107,
+      "episode_seed": 1107,
+      "reset_kwargs": {
+        "seed": 1107
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 176,
+      "info": {
+        "elapsed_steps": 176,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 108,
+      "episode_seed": 1108,
+      "reset_kwargs": {
+        "seed": 1108
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 193,
+      "info": {
+        "elapsed_steps": 193,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 110,
+      "episode_seed": 1110,
+      "reset_kwargs": {
+        "seed": 1110
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 191,
+      "info": {
+        "elapsed_steps": 191,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 111,
+      "episode_seed": 1111,
+      "reset_kwargs": {
+        "seed": 1111
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 212,
+      "info": {
+        "elapsed_steps": 212,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 112,
+      "episode_seed": 1112,
+      "reset_kwargs": {
+        "seed": 1112
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 202,
+      "info": {
+        "elapsed_steps": 202,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 113,
+      "episode_seed": 1113,
+      "reset_kwargs": {
+        "seed": 1113
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 216,
+      "info": {
+        "elapsed_steps": 216,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 116,
+      "episode_seed": 1116,
+      "reset_kwargs": {
+        "seed": 1116
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 195,
+      "info": {
+        "elapsed_steps": 195,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 117,
+      "episode_seed": 1117,
+      "reset_kwargs": {
+        "seed": 1117
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 226,
+      "info": {
+        "elapsed_steps": 226,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 118,
+      "episode_seed": 1118,
+      "reset_kwargs": {
+        "seed": 1118
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 189,
+      "info": {
+        "elapsed_steps": 189,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 119,
+      "episode_seed": 1119,
+      "reset_kwargs": {
+        "seed": 1119
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 217,
+      "info": {
+        "elapsed_steps": 217,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 120,
+      "episode_seed": 1120,
+      "reset_kwargs": {
+        "seed": 1120
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 181,
+      "info": {
+        "elapsed_steps": 181,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 121,
+      "episode_seed": 1121,
+      "reset_kwargs": {
+        "seed": 1121
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 177,
+      "info": {
+        "elapsed_steps": 177,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 122,
+      "episode_seed": 1122,
+      "reset_kwargs": {
+        "seed": 1122
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 183,
+      "info": {
+        "elapsed_steps": 183,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 123,
+      "episode_seed": 1123,
+      "reset_kwargs": {
+        "seed": 1123
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 185,
+      "info": {
+        "elapsed_steps": 185,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 124,
+      "episode_seed": 1124,
+      "reset_kwargs": {
+        "seed": 1124
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 178,
+      "info": {
+        "elapsed_steps": 178,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 125,
+      "episode_seed": 1125,
+      "reset_kwargs": {
+        "seed": 1125
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 193,
+      "info": {
+        "elapsed_steps": 193,
+        "success": true
+      }
+    },
+    {
+      "episode_id": 126,
+      "episode_seed": 1126,
+      "reset_kwargs": {
+        "seed": 1126
+      },
+      "control_mode": "pd_joint_pos",
+      "elapsed_steps": 194,
+      "info": {
+        "elapsed_steps": 194,
+        "success": true
+      }
+    }
+  ]
+}
