@@ -262,21 +262,23 @@ def load_dataset(config):
         from diffuser.datasets.d4rl import get_dataset_from_h5
         env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
+        # TODO: only use extra info as observation
+        dataset['observations'] = dataset['extra']
         # only keep xyz
-        dataset['observations'] = dataset['observations'][:, :, :3]
-        # flatten observation
-        batch_size = dataset['observations'].shape[0]
-        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-        if config['use_extra']:
-            # if we're not using all 4 of the extra info (default)
-            if len(config['extra_info']) < 4:
-                # use the infomation listed in the config['extra_info] array
-                print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
-                extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
-                        'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
-                dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
-            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        # dataset['observations'] = dataset['observations'][:, :, :3]
+        # # flatten observation
+        # batch_size = dataset['observations'].shape[0]
+        # dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
+        # if config['use_extra']:
+        #     # if we're not using all 4 of the extra info (default)
+        #     if len(config['extra_info']) < 4:
+        #         # use the infomation listed in the config['extra_info] array
+        #         print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
+        #         extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
+        #                 'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
+        #         dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
+        #     print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
+        #     dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
         # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
         dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
     else:

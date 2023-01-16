@@ -112,20 +112,22 @@ def load_dataset(config):
         from diffuser.datasets.d4rl import get_dataset_from_h5
         env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # only keep xyz
-        dataset['observations'] = dataset['observations'][:, :, :3]
-        # flatten observation
-        batch_size = dataset['observations'].shape[0]
-        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-        if config['use_extra']:
-            if len(config['extra_info']) < 4:
-                # use the infomation listed in the config['extra_info] array
-                print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
-                extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
-                        'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
-                dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
-            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        # TODO: only use extra info as observation
+        dataset['observations'] = dataset['extra']
+        # # only keep xyz
+        # dataset['observations'] = dataset['observations'][:, :, :3]
+        # # flatten observation
+        # batch_size = dataset['observations'].shape[0]
+        # dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
+        # if config['use_extra']:
+        #     if len(config['extra_info']) < 4:
+        #         # use the infomation listed in the config['extra_info] array
+        #         print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
+        #         extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
+        #                 'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
+        #         dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
+        #     print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
+        #     dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
         # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
         dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
     else:
@@ -288,20 +290,22 @@ class Evaluation:
 
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
-            if self.config['use_extra']:
-                extra = obs['extra']
-            if self.config['obs_mode'] == 'pointcloud':
-                # only keep xyz
-                obs = obs['pointcloud']['xyz'][:, :3]
-                # flatten obs
-                obs = obs.reshape(-1)
-            if self.config['use_extra']:
-                # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
-                if len(config['extra_info']) < 4:
-                    extra_dict = {'qpos': extra[:7], 'qvel': extra[7:14], 
-                        'tcp_pose': extra[14:21], 'target': extra[21:]}
-                    extra = np.concatenate([extra_dict[info_name] for info_name in config['extra_info']], axis = -1)
-                obs = np.concatenate([obs, extra], axis=-1)
+            # TODO: use extra info as observation
+            obs = obs['extra']
+            # if self.config['use_extra']:
+            #     extra = obs['extra']
+            # if self.config['obs_mode'] == 'pointcloud':
+            #     # only keep xyz
+            #     obs = obs['pointcloud']['xyz'][:, :3]
+            #     # flatten obs
+            #     obs = obs.reshape(-1)
+            # if self.config['use_extra']:
+            #     # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
+            #     if len(config['extra_info']) < 4:
+            #         extra_dict = {'qpos': extra[:7], 'qvel': extra[7:14], 
+            #             'tcp_pose': extra[14:21], 'target': extra[21:]}
+            #         extra = np.concatenate([extra_dict[info_name] for info_name in config['extra_info']], axis = -1)
+            #     obs = np.concatenate([obs, extra], axis=-1)
             
             obs = torch.tensor(obs).to(device, dtype=torch.float).expand(1, -1)
             
