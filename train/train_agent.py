@@ -149,7 +149,7 @@ def train(config):
     agent = create_agent(config, network, optim)
 
     # load dataset
-    dataloader = load_dataset(config)
+    dataloader = load_customized_dataset(config)
 
     # prepare visualization
     wandb.init(project='ibc', name=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
@@ -257,28 +257,87 @@ def create_agent(config, network, optim):
 
     return agent
 
+def load_customized_dataset(config):
+    if 'h5' in config['dataset_dir']:
+        from diffuser.datasets.d4rl import get_dataset_from_h5
+        env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
+        dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
+        # only keep xyz
+        dataset['observations'] = dataset['observations'][:, :, :3]
+        # flatten observation
+        batch_size = dataset['observations'].shape[0]
+        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
+
+        # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
+        if 'predict_target' in config:
+            # get target information
+            target = dataset['extra'][:, 21:]
+            dataset = maniskill_dataset(dataset['observations'], np.float32(target), 'cuda')
+        else:
+            # prepare pretrained extra feature (target position) model
+            pretrained_config = config.copy()
+            pretrained_config['act_dim'] = 2
+            pretrained_config['obs_dim'] = 3072
+            pretrained_config['checkpoint_path'] = f"work_dirs/formal_exp/{config['env_name']}/predict_target/checkpoints/"
+            pretrained_config['resume_from_step'] = 20000
+            print("[network | info] loading pretrained extra feature model at step", pretrained_config['resume_from_step'])
+            pretrained_network, pretrained_network_visual = utils.create_network(pretrained_config)
+            print(f'[ datasets/encode ] start encoding dataset observations')
+            target = dataset['extra'][:, 21:]
+            batch_size = dataset['observations'].shape[0]
+            mini_batch_size = 2048
+            predict_target = np.zeros(target.shape)
+            print("predict_target", predict_target.shape)
+            # predict target position using pretrained model in mini batch
+            with torch.no_grad():
+                for i in tqdm.tqdm(range(int(np.ceil(batch_size/mini_batch_size)))):
+                    mini_batch_start = i*mini_batch_size
+                    batch_observation = dataset['observations'][mini_batch_start : mini_batch_start + mini_batch_size]
+                    batch_observation = torch.Tensor(batch_observation).cuda()
+                    visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
+                    visual_embed = pretrained_network_visual(batch_observation[:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
+                    
+                    predict_target[mini_batch_start : mini_batch_start + mini_batch_size] = pretrained_network(visual_embed).cpu().numpy()
+            dataset['extra'][:, 21:] = predict_target
+        if config['use_extra']:
+            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
+            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
+
+    else:
+        dataset = torch.load(config['dataset_dir'])
+    if config['data_amount']:
+        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
+        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
+    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
+        generator=torch.Generator(device='cuda'), 
+        shuffle=True)
+    # print("dataset[0][0].size()[0]", dataset[0][0].size()[0], config['obs_dim'])
+    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
+    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
+
+    return dataloader
+
 def load_dataset(config):
     if 'h5' in config['dataset_dir']:
         from diffuser.datasets.d4rl import get_dataset_from_h5
         env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # TODO: only use extra info as observation
-        dataset['observations'] = dataset['extra']
         # only keep xyz
-        # dataset['observations'] = dataset['observations'][:, :, :3]
-        # # flatten observation
-        # batch_size = dataset['observations'].shape[0]
-        # dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-        # if config['use_extra']:
-        #     # if we're not using all 4 of the extra info (default)
-        #     if len(config['extra_info']) < 4:
-        #         # use the infomation listed in the config['extra_info] array
-        #         print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
-        #         extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
-        #                 'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
-        #         dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
-        #     print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-        #     dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        dataset['observations'] = dataset['observations'][:, :, :3]
+        # flatten observation
+        batch_size = dataset['observations'].shape[0]
+        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
+        if config['use_extra']:
+            # if we're not using all 4 of the extra info (default)
+            if len(config['extra_info']) < 4:
+                # use the infomation listed in the config['extra_info] array
+                print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
+                extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
+                        'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
+                dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
+            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
+            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
         # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
         dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
     else:

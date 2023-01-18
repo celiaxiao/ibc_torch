@@ -112,24 +112,23 @@ def load_dataset(config):
         from diffuser.datasets.d4rl import get_dataset_from_h5
         env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # TODO: only use extra info as observation
-        dataset['observations'] = dataset['extra']
-        # # only keep xyz
-        # dataset['observations'] = dataset['observations'][:, :, :3]
-        # # flatten observation
-        # batch_size = dataset['observations'].shape[0]
-        # dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-        # if config['use_extra']:
-        #     if len(config['extra_info']) < 4:
-        #         # use the infomation listed in the config['extra_info] array
-        #         print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
-        #         extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
-        #                 'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
-        #         dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
-        #     print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-        #     dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        # only keep xyz
+        dataset['observations'] = dataset['observations'][:, :, :3]
+        # flatten observation
+        batch_size = dataset['observations'].shape[0]
+        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
+        if config['use_extra']:
+            # if len(config['extra_info']) < 4:
+            #     # use the infomation listed in the config['extra_info] array
+            #     print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
+            #     extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
+            #             'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
+            #     dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
+            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
+            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
+        target = dataset['extra'][:, 21:]
         # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
-        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
+        dataset = maniskill_dataset(dataset['observations'], np.float32(target), 'cuda')
     else:
         dataset = torch.load(config['dataset_dir'])
     
@@ -156,6 +155,8 @@ class Evaluation:
 
         # Create network and load from checkpoint
         self.network_visual, self.network = self.create_and_load_network()
+        # create and load pretrained network
+        self.pretrained_network, self.pretrained_network_visual = utils.create_and_load_pretrained_network(self.config)
 
         # Create ibc policy to evaluate
         self.ibc_policy = self.create_policy()
@@ -236,7 +237,7 @@ class Evaluation:
         rewards_info = np.zeros(self.config['num_episodes'])
         shifted_rewards_info = np.zeros(self.config['num_episodes'])
         success_info = np.zeros(self.config['num_episodes'])
-
+        target_distances = np.zeros((self.config['num_episodes'], 2))
         if self.config['eval_seeds_file']:
             seeds_file = json.load(open(self.config['eval_seeds_file']))
             seeds = [seeds_file['episodes'][i]['episode_seed'] for i in range(self.config['num_episodes'])]
@@ -248,19 +249,23 @@ class Evaluation:
             self.episode_id = idx
             seed = seeds[idx]
             # seed = known_seed[idx]
-            total_reward, success, num_steps, shifted_reward = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
+            total_reward, success, num_steps, shifted_reward, target_distance = self.run_single_episode(video_path=f"{self.eval_info_path}videos/{idx}",seed=seed)
             self.eval_info[f'eval_traj_{idx}'] = {
                 'seed':seed, 'total_reward':total_reward,
-                'success':success, 'num_steps':num_steps
+                'success':success, 'num_steps':num_steps,
+                'target_distance': target_distance,
             }
             rewards_info[idx] = total_reward
             shifted_rewards_info[idx] = shifted_reward
             success_info[idx] = success
+            target_distances[idx] = target_distance
         self.eval_info[f'summary'] = {
                 'success_rate':success_info.mean(), 
                 'avg_rewards':rewards_info.mean(),  'max_rewards': rewards_info.max(),
                 'min_rewards': rewards_info.min(), 'max_shifted_rewards': shifted_rewards_info.max(),
                 'min_shifted_rewards': shifted_rewards_info.min(),
+                'mean_target_distance': target_distances.mean(axis=0),
+                'std_target_distance': target_distances.std(axis=0),
             }
 
         # with open(f"{self.eval_info_path}traj_info.json", 'w') as f:
@@ -279,7 +284,7 @@ class Evaluation:
         success = False
         imgs = [self.env.render("rgb_array")]
         shifted_reward = 0
-        
+        target_distance = torch.zeros(2)
         # for num_steps in range(len(self.env._max_episode_steps)):
         for num_steps in range(1,self.config['max_episode_steps']+1):
             if done:
@@ -290,22 +295,28 @@ class Evaluation:
 
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
-            # TODO: use extra info as observation
-            obs = obs['extra']
-            # if self.config['use_extra']:
-            #     extra = obs['extra']
-            # if self.config['obs_mode'] == 'pointcloud':
-            #     # only keep xyz
-            #     obs = obs['pointcloud']['xyz'][:, :3]
-            #     # flatten obs
-            #     obs = obs.reshape(-1)
-            # if self.config['use_extra']:
-            #     # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
-            #     if len(config['extra_info']) < 4:
-            #         extra_dict = {'qpos': extra[:7], 'qvel': extra[7:14], 
-            #             'tcp_pose': extra[14:21], 'target': extra[21:]}
-            #         extra = np.concatenate([extra_dict[info_name] for info_name in config['extra_info']], axis = -1)
-            #     obs = np.concatenate([obs, extra], axis=-1)
+            if self.config['use_extra']:
+                extra = obs['extra']
+            if self.config['obs_mode'] == 'pointcloud':
+                # only keep xyz
+                obs = obs['pointcloud']['xyz'][:, :3]
+                # flatten obs
+                obs = obs.reshape(-1)
+            with torch.no_grad():
+                batch_observation = torch.Tensor(obs[None, :]).cuda()
+                pretrain_visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
+                pretrain_visual_embed = self.pretrained_network_visual(batch_observation[:,:pretrain_visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
+                
+                predict_target = self.pretrained_network(pretrain_visual_embed)
+                target_distance += torch.nn.functional.mse_loss(predict_target, torch.Tensor(extra[21:])).item()
+                extra[21:] = predict_target.cpu().numpy().squeeze()
+            if self.config['use_extra']:
+                # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
+                # if len(config['extra_info']) < 4:
+                #     extra_dict = {'qpos': extra[:7], 'qvel': extra[7:14], 
+                #         'tcp_pose': extra[14:21], 'target': extra[21:]}
+                #     extra = np.concatenate([extra_dict[info_name] for info_name in config['extra_info']], axis = -1)
+                obs = np.concatenate([obs, extra], axis=-1)
             
             obs = torch.tensor(obs).to(device, dtype=torch.float).expand(1, -1)
             
@@ -327,11 +338,12 @@ class Evaluation:
             # save info and update steps
             total_reward += rew
             shifted_reward += rew - self.config['single_step_max_reward']
-            # imgs.append(self.env.render("rgb_array"))
+            imgs.append(self.env.render("rgb_array"))
+
+        target_distance = target_distance / num_steps
+        self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
-        # self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
-        
-        return total_reward, success, num_steps, shifted_reward
+        return total_reward, success, num_steps, shifted_reward, target_distance.cpu().numpy()
 
     def compute_mse(self):
         '''
@@ -490,5 +502,5 @@ if __name__ == "__main__":
 
     elif FLAGS.num_episodes > 0:
         eval.run_eval()
-    if FLAGS.compute_mse:
-        eval.compute_mse()
+    # if FLAGS.compute_mse:
+    #     eval.compute_mse()

@@ -47,3 +47,14 @@ def create_network(config):
             f"{config['checkpoint_path']}step_{resume_step}_mlp.pt"))
 
     return network, network_visual
+
+def create_and_load_pretrained_network(config):
+    # prepare pretrained extra feature (target position) model
+    pretrained_config = config.copy()
+    pretrained_config['act_dim'] = 2
+    pretrained_config['obs_dim'] = 3072
+    pretrained_config['checkpoint_path'] = f"work_dirs/formal_exp/{config['env_name']}/predict_target/checkpoints/"
+    pretrained_config['resume_from_step'] = 20000
+    print("[network | info] loading pretrained extra feature model at step", pretrained_config['resume_from_step'])
+    pretrained_network, pretrained_network_visual = create_network(pretrained_config)
+    return pretrained_network, pretrained_network_visual

@@ -19,12 +19,12 @@
 # Network input dimensions
 --obs_dim=23
 --act_dim=7
-# --visual_num_points=1024
-# --visual_num_channels=3
-# --visual_output_dim=128
+--visual_num_points=1024
+--visual_num_channels=3
+--visual_output_dim=128
 
 # Visual network configs
-# --visual_type=pointnet
+--visual_type=pointnet
 
 # dataset config
 --dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
