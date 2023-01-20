@@ -7,6 +7,16 @@ traj 174 finishs at step 31074
 last traj starts at 34258
 total 193 trajs
 
+- pointcloud frame 3
+last traj ends at 34454
+total 193 trajs
+
+- pointcloud frame 2
+total 34479 pairs
+
+-pointcloud frame 1
+total 34514 pairs
+
 CUDA_VISIBLE_DEVICES=1 python data/maniskill_full_pipeline.py --h5_path=/home/caiwei/data/soft_body_envs/Hang-v0/trajectory.none.pd_joint_delta_pos.h5 --json_path=/home/caiwei/data/soft_body_envs/Hang-v0/trajectory.none.pd_joint_delta_pos.json --env_name=Hang-v0 --new_h5_path=/home/caiwei/data/soft_body_envs/Hang-v0/ --obs_mode=pointcloud
 traj 170 finishs at step 45420
 total 191 trajs

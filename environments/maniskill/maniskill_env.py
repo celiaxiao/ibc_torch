@@ -3,6 +3,10 @@ from mani_skill2.envs.mpm.fill_env import FillEnv
 from mani_skill2.envs.mpm.excavate_env import ExcavateEnv
 import numpy as np
 from numpy.random import default_rng
+from gym.core import Wrapper
+
+from pyrl.utils.data import GDict
+from pyrl.utils.meta import Registry
 
 class HangEnvParticle(HangEnv):
     '''
@@ -134,3 +138,49 @@ class ExcavateEnvPointcloud(ExcavateEnv):
         agent = np.hstack((obs['agent']['qpos'], obs['agent']['qvel'], obs['extra']['tcp_pose'], obs['extra']['target']))
 
         return {'pointcloud':{'xyz':xyz, 'rgb':rgb}, 'extra':agent}
+
+WRAPPERS = Registry("wrappers of gym environments")
+class ExtendedWrapper(Wrapper):
+    def __getattr__(self, name):
+        # gym standard do not support name with '_'
+        return getattr(self.env, name)
+@WRAPPERS.register_module()
+class FrameStackWrapper(ExtendedWrapper):
+    def __init__(self, env, num_frames: int, **kwargs) -> None:
+        super().__init__(env)
+        self.num_frames = num_frames
+        self.obs_mode = getattr(self.env, "obs_mode", "state")
+        self.frames = []
+        self.pos_encoding = np.eye(num_frames, dtype=np.uint8)
+
+    def observation(self):
+        if self.obs_mode == "pointcloud":
+            num_points = self.frames[0]['pointcloud']["xyz"].shape[0]
+            pos_encoding = np.repeat(self.pos_encoding, num_points, axis=0)
+            obs = GDict.concat(self.frames, axis=0, wrapper=False)
+            # use the last frame extra information
+            last_frame = self.frames[-1]
+            last_extra_info = last_frame['extra']
+            # for frame in self.frames:
+            #     print("self.frames", frame["pointcloud"]["xyz"].shape)
+            # print(f"{pos_encoding=}")
+            obs["pos_encoding"] = pos_encoding
+            obs["pointcloud"]["xyz"] = np.concatenate([obs["pointcloud"]["xyz"], obs["pos_encoding"]], axis=-1)
+            obs["pointcloud"]["rgb"] = np.concatenate([obs["pointcloud"]["rgb"], obs["pos_encoding"]], axis=-1)
+            obs['extra'] = last_extra_info
+            return obs
+        else:
+            return GDict.concat(self.frames, axis=-3, wrapper=False)
+
+    def step(self, actions, idx=None):
+        next_obs, rewards, dones, infos = self.env.step(actions)
+        self.frames = self.frames[1:] + [next_obs]
+        return self.observation(), rewards, dones, infos
+
+    def reset(self, **kwargs):
+        obs = self.env.reset(**kwargs)
+        self.frames = [obs] * self.num_frames
+        return self.observation()
+    
+    def get_obs(self):
+        return self.observation()

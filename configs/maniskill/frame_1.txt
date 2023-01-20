@@ -6,17 +6,16 @@
 
 # --dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
 # --data_amount=29457
---dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_frames_3_processed.h5
---data_amount=29461
+--dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_frames_1_processed.h5
+--data_amount=30014
 # --extra_info=qvel, tcp_pose, target
 
 # Network input dimensions
 # --obs_dim=3072
---obs_dim=10240
+--obs_dim=4119
 --act_dim=7
-# --visual_num_points=1024
---visual_num_points=2048
---visual_num_channels=5
+--visual_num_points=1024
+--visual_num_channels=4
 --visual_output_dim=128
 
 # Visual network configs
