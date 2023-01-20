@@ -114,7 +114,8 @@ def load_dataset(config):
         env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
         # only keep xyz
-        dataset['observations'] = dataset['observations'][:, :, :3]
+        channel = dataset['observations'].shape[-1]
+        dataset['observations'] = dataset['observations'][:, :, :channel // 2]
         # flatten observation
         batch_size = dataset['observations'].shape[0]
         dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
@@ -328,9 +329,9 @@ class Evaluation:
             # save info and update steps
             total_reward += rew
             shifted_reward += rew - self.config['single_step_max_reward']
-            imgs.append(self.env.render("rgb_array"))
+        #     imgs.append(self.env.render("rgb_array"))
         
-        self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
+        # self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
         return total_reward, success, num_steps, shifted_reward
 
