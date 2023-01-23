@@ -7,7 +7,7 @@
 # --dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
 # --data_amount=29457
 --dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_frames_3_processed.h5
---data_amount=29461
+--data_amount=29454
 # --extra_info=qvel, tcp_pose, target
 
 # Network input dimensions

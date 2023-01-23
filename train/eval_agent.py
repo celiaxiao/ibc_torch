@@ -43,6 +43,7 @@ flags.DEFINE_integer('main_test_seed', 0, 'seed for episode seed generator if ev
 flags.DEFINE_boolean('image_obs', False, 'using image observation')
 flags.DEFINE_float('goal_tolerance', 0.02, 'tolerance for current position vs the goal')
 flags.DEFINE_boolean('viz_img', False, 'visualize image in eval')
+flags.DEFINE_boolean('save_video', True, 'visualize videos in eval')
 flags.DEFINE_enum('agent_type', default='ibc', enum_values=['ibc', 'mse'], 
                   help='Type of agent to use')
 flags.DEFINE_list('extra_info', ['qpos', 'qvel', 'tcp_pose', 'target'], "list of extra information to include")
@@ -161,7 +162,7 @@ class Evaluation:
         self.ibc_policy = self.create_policy()
 
         # Create evaluation config -- TODO: read from eval_cfg
-        self.save_video = True
+        self.save_video = config['save_video']
         self.episode_id = 0
         self.eval_info = {}
         self.eval_info_path = f"work_dirs/formal_exp/{self.config['env_name']}/{self.config['train_exp_name']}/eval/{self.config['eval_step']}_{self.config['eval_exp_name']}/"
@@ -329,9 +330,10 @@ class Evaluation:
             # save info and update steps
             total_reward += rew
             shifted_reward += rew - self.config['single_step_max_reward']
-        #     imgs.append(self.env.render("rgb_array"))
-        
-        # self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
+            if self.save_video:
+                imgs.append(self.env.render("rgb_array"))
+        if self.save_video:
+            self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
         return total_reward, success, num_steps, shifted_reward
 
