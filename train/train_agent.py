@@ -4,19 +4,12 @@ from absl import flags
 
 from agents import ibc_agent, mse_agent
 from agents.utils import save_config, tile_batch, get_sampling_spec
-from environments.maniskill.maniskill_env import FillEnvPointcloud
 
 from network import mlp_ebm, mlp
 from network.layers import pointnet, resnet
 # import more visual layers here if needed
 
 import torch
-import numpy as np
-import tqdm
-from torch.utils.data import DataLoader, Dataset
-
-from data.transform_dataset import Ibc_dataset, d4rl_dataset
-from data.dataset_maniskill import *
 
 from train import utils
 
@@ -166,8 +159,8 @@ def train(config):
             if config['visual_type'] is not None:
                 visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
                 visual_embed = network_visual(experience[0][:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
-                if config['use_extra']:
-                    visual_embed = torch.concat([visual_embed, experience[0][:,visual_input_dim:]], -1)
+                # if config['use_extra']:
+                visual_embed = torch.concat([visual_embed, experience[0][:,visual_input_dim:]], -1)
                 experience = (visual_embed, experience[1])
             loss_dict = agent.train(experience)
             grad_norm, grad_max, weight_norm, weight_max = network_info(network)
@@ -318,40 +311,6 @@ def load_customized_dataset(config):
 
     return dataloader
 
-def load_dataset(config):
-    if 'h5' in config['dataset_dir']:
-        from diffuser.datasets.d4rl import get_dataset_from_h5
-        env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
-        dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # only keep xyz
-        dataset['observations'] = dataset['observations'][:, :, :3]
-        # flatten observation
-        batch_size = dataset['observations'].shape[0]
-        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-        if config['use_extra']:
-            # if we're not using all 4 of the extra info (default)
-            if len(config['extra_info']) < 4:
-                # use the infomation listed in the config['extra_info] array
-                print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
-                extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
-                        'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
-                dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
-            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
-        # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
-        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
-    else:
-        dataset = torch.load(config['dataset_dir'])
-    if config['data_amount']:
-        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
-        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
-        generator=torch.Generator(device='cuda'), 
-        shuffle=True)
-    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
-    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
-
-    return dataloader
 
 @torch.no_grad()
 def network_info(network, ord=2):

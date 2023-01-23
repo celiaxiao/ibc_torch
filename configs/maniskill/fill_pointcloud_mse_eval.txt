@@ -8,8 +8,8 @@
 --max_episode_steps=250
 
 --eval_seeds_file=configs/maniskill/Fill-v0.test.stage1.json
---data_amount=29457
---extra_info=qpos, qvel, tcp_pose
+# --eval_seeds_file=/home/caiwei/data/soft_body_envs/Fill-v0/trajectory.json 
+# --extra_info=qpos, qvel, tcp_pose, target
 
 # General eval info
 --num_episodes=50
@@ -17,14 +17,19 @@
 --agent_type=mse
 
 # Network input dimensions
---obs_dim=23
+# --obs_dim=3072
+--obs_dim=18432
 --act_dim=7
---visual_num_points=1024
---visual_num_channels=3
+# --visual_num_points=1024
+--visual_num_points=2048
+--visual_num_channels=5
 --visual_output_dim=128
 
 # Visual network configs
 --visual_type=pointnet
 
 # dataset config
---dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
+# --dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_processed.h5
+# --data_amount=29457
+--dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_frames_3_processed.h5
+--data_amount=29454

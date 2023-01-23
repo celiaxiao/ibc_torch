@@ -34,6 +34,7 @@ flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
 flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
 flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
 flags.DEFINE_boolean('use_extra', False, 'whether using extra information as observations')
+flags.DEFINE_integer('num_frames', None, 'number of frames to stack. If > 1, will use a frame_stack wrapper')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
@@ -42,6 +43,7 @@ flags.DEFINE_integer('main_test_seed', 0, 'seed for episode seed generator if ev
 flags.DEFINE_boolean('image_obs', False, 'using image observation')
 flags.DEFINE_float('goal_tolerance', 0.02, 'tolerance for current position vs the goal')
 flags.DEFINE_boolean('viz_img', False, 'visualize image in eval')
+flags.DEFINE_boolean('save_video', True, 'visualize videos in eval')
 flags.DEFINE_enum('agent_type', default='ibc', enum_values=['ibc', 'mse'], 
                   help='Type of agent to use')
 flags.DEFINE_list('extra_info', ['qpos', 'qvel', 'tcp_pose', 'target'], "list of extra information to include")
@@ -113,7 +115,8 @@ def load_dataset(config):
         env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
         # only keep xyz
-        dataset['observations'] = dataset['observations'][:, :, :3]
+        channel = dataset['observations'].shape[-1]
+        dataset['observations'] = dataset['observations'][:, :, :channel // 2]
         # flatten observation
         batch_size = dataset['observations'].shape[0]
         dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
@@ -162,7 +165,7 @@ class Evaluation:
         self.ibc_policy = self.create_policy()
 
         # Create evaluation config -- TODO: read from eval_cfg
-        self.save_video = True
+        self.save_video = config['save_video']
         self.episode_id = 0
         self.eval_info = {}
         self.eval_info_path = f"work_dirs/formal_exp/{self.config['env_name']}/{self.config['train_exp_name']}/eval/{self.config['eval_step']}_{self.config['eval_exp_name']}/"
@@ -193,7 +196,11 @@ class Evaluation:
             print(f"Env {self.config['env_name']} obs mode {self.config['obs_mode']} not supported! Exiting")
             exit(0)
         
-        return fn(obs_mode=self.config['obs_mode'], control_mode=self.config['control_mode'],reward_mode=self.config['reward_mode'])
+        env = fn(obs_mode=self.config['obs_mode'], control_mode=self.config['control_mode'],reward_mode=self.config['reward_mode'])
+        if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
+            print("Using FrameStackWrapper with num_frames", FLAGS.num_frames)
+            env = FrameStackWrapper(env, num_frames=FLAGS.num_frames)
+        return env
 
     def create_and_load_network(self):
         config = self.config
@@ -299,7 +306,7 @@ class Evaluation:
                 extra = obs['extra']
             if self.config['obs_mode'] == 'pointcloud':
                 # only keep xyz
-                obs = obs['pointcloud']['xyz'][:, :3]
+                obs = obs['pointcloud']['xyz']
                 # flatten obs
                 obs = obs.reshape(-1)
             with torch.no_grad():
@@ -338,12 +345,17 @@ class Evaluation:
             # save info and update steps
             total_reward += rew
             shifted_reward += rew - self.config['single_step_max_reward']
-            imgs.append(self.env.render("rgb_array"))
+            if self.save_video:
+                imgs.append(self.env.render("rgb_array"))
+        if self.save_video:
+            self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
 
         target_distance = target_distance / num_steps
-        self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
         return total_reward, success, num_steps, shifted_reward, target_distance.cpu().numpy()
+            
+        
+        return total_reward, success, num_steps, shifted_reward
 
     def compute_mse(self):
         '''

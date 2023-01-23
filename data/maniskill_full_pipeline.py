@@ -24,6 +24,7 @@ flags.DEFINE_string('json_path', None, 'json demo path')
 flags.DEFINE_string('env_name', 'Hang-v0', 'env name')
 flags.DEFINE_enum('obs_mode', default='particles', enum_values=['particles', 'state', 'pointcloud'], help='')
 flags.DEFINE_enum('control_mode', default='pd_joint_delta_pos', enum_values=['pd_joint_delta_pos'], help='env control_mode')
+flags.DEFINE_integer('num_frames', None, 'number of frames to stack. If > 1, will use a frame_stack wrapper')
 flags.DEFINE_string('raw_data_path', None, 'Path to save raw obs/act')
 flags.DEFINE_string('dataset_path', None, 'Path to save torch dataset')
 flags.DEFINE_string('new_h5_path', None, 'Path to save processed h5 file')
@@ -54,6 +55,10 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
                 if FLAGS.obs_mode == 'pointcloud':
                     all_obs.append(np.hstack((obs['pointcloud']['xyz'], obs['pointcloud']['rgb'])))
                     all_extras.append(obs['extra'])
+                    if len(all_obs) == 1:
+                        # Need to manually put these into config files
+                        print('obs shape', all_obs[0].shape)
+                        print('action shape', action.shape)
                 else:
                     all_obs.append(obs)
                 all_actions.append(action)
@@ -136,7 +141,14 @@ if __name__ == '__main__':
         target_env = fn(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
     else:
         target_env = gym.make(FLAGS.env_name, control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
+    
+    if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
+        print("Using FrameStackWrapper with num_frames", FLAGS.num_frames)
+        target_env = FrameStackWrapper(target_env, num_frames=FLAGS.num_frames)
+
     prefix = f"{FLAGS.env_name}_{FLAGS.obs_mode}_{FLAGS.control_mode}"
+    if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
+        prefix = prefix + f"_frames_{FLAGS.num_frames}"
     print(prefix)
 
     convert_dataset(h5_path=FLAGS.h5_path, json_path=FLAGS.json_path, target_env=target_env, raw_data_path=FLAGS.raw_data_path, dataset_path=FLAGS.dataset_path, new_h5_path=FLAGS.new_h5_path, prefix=prefix)
