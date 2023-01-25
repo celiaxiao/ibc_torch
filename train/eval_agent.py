@@ -21,7 +21,6 @@ import torch
 import numpy as np
 import tqdm
 import json
-from moviepy.editor import ImageSequenceClip
 
 device = torch.device('cuda')
 
@@ -315,8 +314,8 @@ class Evaluation:
                 pretrain_visual_embed = self.pretrained_network_visual(batch_observation[:,:pretrain_visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
                 
                 predict_target = self.pretrained_network(pretrain_visual_embed)
-                target_distance += torch.nn.functional.mse_loss(predict_target, torch.Tensor(extra[21:])).item()
-                extra[21:] = predict_target.cpu().numpy().squeeze()
+                target_distance += torch.nn.functional.mse_loss(predict_target.squeeze(), torch.Tensor(extra[21:])).item()
+                # extra[21:] = predict_target.cpu().numpy().squeeze()
             if self.config['use_extra']:
                 # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
                 # if len(config['extra_info']) < 4:
@@ -348,7 +347,7 @@ class Evaluation:
             if self.save_video:
                 imgs.append(self.env.render("rgb_array"))
         if self.save_video:
-            self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
+            utils.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
 
         target_distance = target_distance / num_steps
         
@@ -424,15 +423,18 @@ class Evaluation:
         
         with open(f"{self.eval_info_path}mse_info.json", 'w') as f:
             if validate_dataset:
-                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': np.mean(validate_mse_loss)}, f, indent=4)
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 
+                           'training_data_mse_max': np.max(train_mse_loss), 
+                           'training_data_mse_min': np.min(train_mse_loss), 
+                           'validation_data_mse': np.mean(validate_mse_loss),
+                           'validation_data_mse_max': np.max(validate_mse_loss), 
+                           'validation_data_mse_min': np.min(validate_mse_loss), 
+                           }, f, indent=4)
             else:
-                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': None}, f, indent=4)
-
-
-    def animate(self, imgs, fps=20, path="animate.mp4"):
-        imgs = ImageSequenceClip(imgs, fps=fps)
-        imgs.write_videofile(path, fps=fps)
-
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 
+                           'training_data_mse_max': np.max(train_mse_loss), 
+                           'training_data_mse_min': np.min(train_mse_loss),
+                           'validation_data_mse': None}, f, indent=4)
 
     def eval_ibc_task(self):
         """main ibc eval loop

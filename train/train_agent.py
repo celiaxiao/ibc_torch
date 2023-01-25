@@ -1,18 +1,15 @@
 import os
 import sys
 from absl import flags
-
 from agents import ibc_agent, mse_agent
 from agents.utils import save_config, tile_batch, get_sampling_spec
 
 from network import mlp_ebm, mlp
 from network.layers import pointnet, resnet
+from train import utils
 # import more visual layers here if needed
 
 import torch
-
-from train import utils
-
 import wandb
 
 device = torch.device('cuda')
@@ -26,6 +23,7 @@ flags.DEFINE_boolean('use_extra', False, 'whether using extra information as obs
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 flags.DEFINE_list('extra_info', ['qpos', 'qvel', 'tcp_pose', 'target'], "list of extra information to include")
+flags.DEFINE_string('predict_target', None, 'indicate whether current training target is extra information target position')
 
 # General training config
 flags.DEFINE_integer('batch_size', 512, 'Training batch size')
@@ -142,7 +140,7 @@ def train(config):
     agent = create_agent(config, network, optim)
 
     # load dataset
-    dataloader = load_customized_dataset(config)
+    dataloader = utils.load_customized_dataset(config)
 
     # prepare visualization
     wandb.init(project='ibc', name=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
@@ -249,67 +247,6 @@ def create_agent(config, network, optim):
         exit(0)
 
     return agent
-
-def load_customized_dataset(config):
-    if 'h5' in config['dataset_dir']:
-        from diffuser.datasets.d4rl import get_dataset_from_h5
-        env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
-        dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # only keep xyz
-        dataset['observations'] = dataset['observations'][:, :, :3]
-        # flatten observation
-        batch_size = dataset['observations'].shape[0]
-        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-
-        # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
-        if 'predict_target' in config:
-            # get target information
-            target = dataset['extra'][:, 21:]
-            dataset = maniskill_dataset(dataset['observations'], np.float32(target), 'cuda')
-        else:
-            # prepare pretrained extra feature (target position) model
-            pretrained_config = config.copy()
-            pretrained_config['act_dim'] = 2
-            pretrained_config['obs_dim'] = 3072
-            pretrained_config['checkpoint_path'] = f"work_dirs/formal_exp/{config['env_name']}/predict_target/checkpoints/"
-            pretrained_config['resume_from_step'] = 20000
-            print("[network | info] loading pretrained extra feature model at step", pretrained_config['resume_from_step'])
-            pretrained_network, pretrained_network_visual = utils.create_network(pretrained_config)
-            print(f'[ datasets/encode ] start encoding dataset observations')
-            target = dataset['extra'][:, 21:]
-            batch_size = dataset['observations'].shape[0]
-            mini_batch_size = 2048
-            predict_target = np.zeros(target.shape)
-            print("predict_target", predict_target.shape)
-            # predict target position using pretrained model in mini batch
-            with torch.no_grad():
-                for i in tqdm.tqdm(range(int(np.ceil(batch_size/mini_batch_size)))):
-                    mini_batch_start = i*mini_batch_size
-                    batch_observation = dataset['observations'][mini_batch_start : mini_batch_start + mini_batch_size]
-                    batch_observation = torch.Tensor(batch_observation).cuda()
-                    visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
-                    visual_embed = pretrained_network_visual(batch_observation[:,:visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
-                    
-                    predict_target[mini_batch_start : mini_batch_start + mini_batch_size] = pretrained_network(visual_embed).cpu().numpy()
-            dataset['extra'][:, 21:] = predict_target
-        if config['use_extra']:
-            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
-        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
-
-    else:
-        dataset = torch.load(config['dataset_dir'])
-    if config['data_amount']:
-        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
-        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
-        generator=torch.Generator(device='cuda'), 
-        shuffle=True)
-    # print("dataset[0][0].size()[0]", dataset[0][0].size()[0], config['obs_dim'])
-    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
-    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
-
-    return dataloader
 
 
 @torch.no_grad()
