@@ -2,17 +2,25 @@
 # import mani_skill2.envs
 
 # dataset = SequenceDataset(env='maze2d-large-v1')
-from environments.maniskill.maniskill_env import *
+# from environments.maniskill.maniskill_env import *
 # env = FillEnvParticle(control_mode='pd_joint_delta_pos', obs_mode='particles')
 # env.unwrapped
     
 # print(env._max_episode_steps)
 
 # print("observation space", env.observation_space.shape)
-import open3d as o3d
-import transforms3d
+# import open3d as o3d
+# import transforms3d
 import gym
 import mani_skill2.envs
+
+env = gym.make("OpenCabinetDoor-v1", model_ids="1000")
+obs = env.reset()
+action = env.action_space.sample()
+obs, reward, done, info = env.step(action)
+print(obs.shape, action.shape)
+exit(0)
+
 def change_background_to_black(vis):
     opt = vis.get_render_option()
     opt.background_color = np.asarray([0, 0, 0])

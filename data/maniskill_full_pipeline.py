@@ -19,11 +19,14 @@ from data.dataset_maniskill import *
 from environments.maniskill.maniskill_env import *
 import gym
 
+from train.utils import animate
+
 flags.DEFINE_string('h5_path', None, 'h5 demo path')
 flags.DEFINE_string('json_path', None, 'json demo path')
 flags.DEFINE_string('env_name', 'Hang-v0', 'env name')
 flags.DEFINE_enum('obs_mode', default='particles', enum_values=['particles', 'state', 'pointcloud'], help='')
-flags.DEFINE_enum('control_mode', default='pd_joint_delta_pos', enum_values=['pd_joint_delta_pos'], help='env control_mode')
+flags.DEFINE_enum('control_mode', default='pd_joint_delta_pos', enum_values=['pd_joint_delta_pos', 'base_pd_joint_vel_arm_pd_joint_vel'], help='env control_mode')
+flags.DEFINE_string('model_ids', None, 'model ids for the current env, used in OpenCabinet')
 flags.DEFINE_integer('num_frames', None, 'number of frames to stack. If > 1, will use a frame_stack wrapper')
 flags.DEFINE_string('raw_data_path', None, 'Path to save raw obs/act')
 flags.DEFINE_string('dataset_path', None, 'Path to save torch dataset')
@@ -47,7 +50,7 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
         for i in range(1):
             episode_id = 'traj_' + str(episode['episode_id'])
             target_env.reset(seed=episode["episode_seed"])
-            print("starting episode", episode_id)
+            print("starting episode", episode_id, "episode_seed", episode["episode_seed"])
             action_count = 0
             for action in h5_demo[episode_id]['actions']:
                 obs = target_env.get_obs()
@@ -84,12 +87,10 @@ def convert_dataset(h5_path, json_path, target_env, raw_data_path, dataset_path,
                 all_dones.append(done)
                 if done:
                     break
-
             # manually mark the end step to done=True
             if not all_dones[-1]:
                 all_dones[-1] = True
                 warnings.warn(f"manually mark {episode_id} to success")
-
             print(f'finished {episode_id}, success status {target_env.evaluate()}')
             print(len(all_obs), len(all_actions), len(all_rewards), len(all_dones))
 
@@ -140,7 +141,7 @@ if __name__ == '__main__':
     if fn is not None:
         target_env = fn(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
     else:
-        target_env = gym.make(FLAGS.env_name, control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
+        target_env = gym.make(FLAGS.env_name, control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode, model_ids="1000")
     
     if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
         print("Using FrameStackWrapper with num_frames", FLAGS.num_frames)
