@@ -22,6 +22,7 @@ flags.DEFINE_string('env_name', None, 'Train env name')
 flags.DEFINE_string('exp_name', 'experiment', 'the experiment name')
 flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
 flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
+flags.DEFINE_string('model_ids', None, 'model ids for the current env, used in OpenCabinet')
 flags.DEFINE_boolean('use_extra', False, 'whether using extra information as observations')
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
@@ -37,6 +38,8 @@ flags.DEFINE_integer('step_checkpoint', 5000,
 flags.DEFINE_integer('resume_from_step', None, 
                      'Resume from previous checkpoint')
 
+flags.DEFINE_integer('log_freq', 1000, 
+                     'frequency of logging loss info in number of steps')
 # Network input dimensions
 flags.DEFINE_integer('obs_dim', 10,
                      'The (total) dimension of the observation')
@@ -142,7 +145,7 @@ def train(config):
     agent = create_agent(config, network, optim)
 
     # load dataset
-    dataloader = utils.load_dataset(config)
+    dataloader = utils.load_dataloader(config)
 
     # prepare visualization
     wandb.init(project='ibc', name=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
@@ -152,8 +155,7 @@ def train(config):
     resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
     while agent.train_step_counter < config['total_steps']:
         for experience in iter(dataloader):
-
-            experience[0] = experience[0].to(device=device, dtype=torch.float)
+            experience = (experience[0].to(device=device, dtype=torch.float), experience[1])
             # print(experience[0], experience[1], type(experience[0]), type(experience[1]))
 
             if config['visual_type'] is not None:
@@ -165,6 +167,9 @@ def train(config):
             loss_dict = agent.train(experience)
             grad_norm, grad_max, weight_norm, weight_max = network_info(network)
             
+            if agent.train_step_counter % config['log_freq']:
+                print(agent.train_step_counter)
+                print("loss at steps", agent.train_step_counter, loss_dict['loss'].mean().item())
             wandb.log({
                 'loss':loss_dict['loss'].mean().item(),
                 'grad_norm':grad_norm
@@ -177,56 +182,9 @@ def train(config):
         
         epoch += 1
         
-        print(agent.train_step_counter)
-        print("loss at epoch", epoch, loss_dict['loss'].mean().item())
-            
         # if epoch % config['epoch_checkpoint'] == 0:
         #     torch.save(network.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_mlp.pt')
         #     torch.save(network_visual.state_dict(), checkpoint_path+'epoch_'+str(epoch)+'_pointnet.pt')
-
-def create_network(config):
-    network_visual=None
-    resume_step = config['resume_from_step'] if config['resume_from_step'] else 0
-
-    if config['visual_type'] == 'pointnet':
-        network_visual = pointnet.pointNetLayer(in_dim=[config['visual_num_channels'], config['visual_num_points']], out_dim=config['visual_output_dim'], normalize=config['visual_normalize'])
-
-        visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
-
-        if config['agent_type'] == 'ibc':
-            network = mlp_ebm.MLPEBM(
-            (config['visual_output_dim'] + config['obs_dim'] - visual_input_dim + config['act_dim']), 1, 
-            width=config['width'], depth=config['depth'],
-            normalizer=config['mlp_normalizer'], rate=config['rate'],
-            dense_layer_type=config['dense_layer_type']).to(device)
-
-        elif config['agent_type'] == 'mse':
-            # Define MLP.
-            network = mlp.MLP(input_dim=(config['visual_output_dim'] + config['obs_dim'] - visual_input_dim), out_dim=config['act_dim'], width=config['width'], depth=config['depth'],
-            normalizer=config['mlp_normalizer'], rate=config['rate'])
-
-        if resume_step > 0:
-            network_visual.load_state_dict(torch.load(
-            f"{config['checkpoint_path']}step_{resume_step}_pointnet.pt"))
-            network.load_state_dict(torch.load(
-            f"{config['checkpoint_path']}step_{resume_step}_mlp.pt"))
-    
-    else:
-        if config['agent_type'] == 'ibc':
-            network = mlp_ebm.MLPEBM(
-            (config['obs_dim'] + config['act_dim']), 1, 
-            width=config['width'], depth=config['depth'],
-            normalizer=config['mlp_normalizer'], rate=config['rate'],
-            dense_layer_type=config['dense_layer_type']).to(device)
-        elif config['agent_type'] == 'mse':
-            # Define MLP.
-            network = mlp.MLP(input_dim=config['obs_dim'], out_dim=config['act_dim'], width=config['width'], depth=config['depth'],
-            normalizer=config['mlp_normalizer'], rate=config['rate'])
-        if resume_step > 0:
-            network.load_state_dict(torch.load(
-            f"{config['checkpoint_path']}step_{resume_step}_mlp.pt"))
-
-    return network, network_visual
 
 def create_agent(config, network, optim):
     if config['agent_type'] == 'ibc':

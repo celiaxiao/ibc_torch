@@ -1,11 +1,13 @@
 from network import mlp_ebm, mlp
 from network.layers import pointnet, resnet
-from environments.maniskill.maniskill_env import FillEnvPointcloud
+from environments.maniskill.maniskill_env import *
 from data.dataset_maniskill import *
 
+import gym
 import torch
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
+from moviepy.editor import ImageSequenceClip
 device = torch.device('cuda')
 
 def create_network(config):
@@ -52,22 +54,44 @@ def create_network(config):
 
     return network, network_visual
 
+def get_env(config):
+    fn = None
+    if config["obs_mode"] == 'particles':
+        if config["env_name"] == 'Hang-v0':
+            fn = HangEnvParticle
+        elif config["env_name"] == 'Fill-v0':
+            fn = FillEnvParticle
+        elif config["env_name"] == 'Excavate-v0':
+            fn = ExcavateEnvParticle
+    elif config["obs_mode"] == 'pointcloud':
+        if config["env_name"] == 'Hang-v0':
+            fn = HangEnvPointcloud
+        elif config["env_name"] == 'Fill-v0':
+            fn = FillEnvPointcloud
+        elif config["env_name"] == 'Excavate-v0':
+            fn = ExcavateEnvPointcloud
+
+    if fn is not None:
+        target_env = fn(control_mode=config["control_mode"], obs_mode=config["obs_mode"])
+    else:
+        target_env = gym.make(config["env_name"], control_mode=config["control_mode"], obs_mode=config["obs_mode"])
+    return target_env
+
 def load_dataset(config):
     if 'h5' in config['dataset_dir']:
         from diffuser.datasets.d4rl import get_dataset_from_h5
-        env = FillEnvPointcloud(control_mode=config['control_mode'], obs_mode=config['obs_mode'])
+        env = get_env(config)
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # only keep xyz
+
         print("[dataset|info] raw observation dim", dataset['observations'].shape)
-        channel = dataset['observations'].shape[-1]
-        dataset['observations'] = dataset['observations'][:, :, :channel//2]
+         # only keep xyz for pointcloud dataset
+        if config["obs_mode"] == "pointcloud":
+            channel = dataset['observations'].shape[-1]
+            dataset['observations'] = dataset['observations'][:, :, :channel//2]
         # flatten observation
         batch_size = dataset['observations'].shape[0]
         dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
         if config['use_extra']:
-            # TODO: should have fix this when collecting the h5 file. Only use the last frame of extra info
-            # if config['num_frames'] is not None and config['num_frames'] > 1:
-            # dataset['extra'] = dataset['extra'][:, -23:]
             # if we're not using all 4 of the extra info (default)
             if len(config['extra_info']) < 4:
                 # use the infomation listed in the config['extra_info] array
@@ -84,11 +108,21 @@ def load_dataset(config):
     if config['data_amount']:
         assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
         dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
-        generator=torch.Generator(device='cuda'), 
-        shuffle=True)
+    
     # print("config['obs_dim'], dataset[0][0].size()[0]", config['obs_dim'], dataset[0][0].size()[0])
     assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
     assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
 
+    return dataset
+
+def load_dataloader(config):
+    dataset = load_dataset(config)
+    dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
+        generator=torch.Generator(device='cuda'), 
+        shuffle=True)
     return dataloader
+
+
+def animate(imgs, fps=20, path="animate.mp4"):
+        imgs = ImageSequenceClip(imgs, fps=fps)
+        imgs.write_videofile(path, fps=fps)

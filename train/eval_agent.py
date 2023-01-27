@@ -19,9 +19,8 @@ from torch.utils.data import DataLoader, Dataset
 from data.dataset_maniskill import *
 import torch
 import numpy as np
-import tqdm
+import gym
 import json
-from moviepy.editor import ImageSequenceClip
 
 device = torch.device('cuda')
 
@@ -31,6 +30,7 @@ flags.DEFINE_string('train_exp_name', None, 'the training experiment name')
 flags.DEFINE_string('eval_exp_name', None, 'the evaluation experiment name')
 flags.DEFINE_string('control_mode', None, 'Control mode for maniskill envs')
 flags.DEFINE_string('obs_mode', None, 'Observation mode for maniskill envs')
+flags.DEFINE_string('model_ids', None, 'model ids for the current env, used in OpenCabinet')
 flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
 flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
 flags.DEFINE_boolean('use_extra', False, 'whether using extra information as observations')
@@ -109,36 +109,6 @@ flags.DEFINE_float('again_stepsize_init', float(1e-05), '')
 FLAGS = flags.FLAGS
 FLAGS(sys.argv)
 
-def load_dataset(config):
-    if 'h5' in config['dataset_dir']:
-        from diffuser.datasets.d4rl import get_dataset_from_h5
-        env = FillEnvPointcloud(control_mode=FLAGS.control_mode, obs_mode=FLAGS.obs_mode)
-        dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
-        # only keep xyz
-        channel = dataset['observations'].shape[-1]
-        dataset['observations'] = dataset['observations'][:, :, :channel // 2]
-        # flatten observation
-        batch_size = dataset['observations'].shape[0]
-        dataset['observations'] = dataset['observations'].reshape(batch_size, -1)
-        if config['use_extra']:
-            if len(config['extra_info']) < 4:
-                # use the infomation listed in the config['extra_info] array
-                print("[dataset|info] using extra info as observation. with info name", config['extra_info'])
-                extra = {'qpos': dataset['extra'][:, :7], 'qvel': dataset['extra'][:, 7:14], 
-                        'tcp_pose': dataset['extra'][:, 14:21], 'target': dataset['extra'][:, 21:]}
-                dataset['extra'] = np.concatenate([extra[info_name] for info_name in config['extra_info']], axis = -1)
-            print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
-            dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
-        # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
-        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
-    else:
-        dataset = torch.load(config['dataset_dir'])
-    
-    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
-    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
-
-    return dataset
-
 class Evaluation:
     def __init__(self, config):
         self.config = config
@@ -161,7 +131,7 @@ class Evaluation:
         # Create ibc policy to evaluate
         self.ibc_policy = self.create_policy()
 
-        # Create evaluation config -- TODO: read from eval_cfg
+        # Create evaluation config -- 
         self.save_video = config['save_video']
         self.episode_id = 0
         self.eval_info = {}
@@ -171,6 +141,7 @@ class Evaluation:
 
     def create_env(self):
         # manually select env to create
+        fn = None
         if self.config['env_name'] == 'Hang-v0':
             if self.config['obs_mode'] == 'particles':
                 fn = HangEnvParticle
@@ -189,11 +160,14 @@ class Evaluation:
             elif self.config['obs_mode'] == 'pointcloud':
                 fn = ExcavateEnvPointcloud 
         
-        else:
-            print(f"Env {self.config['env_name']} obs mode {self.config['obs_mode']} not supported! Exiting")
-            exit(0)
+        #     print(f"Env {self.config['env_name']} obs mode {self.config['obs_mode']} not supported! Exiting")
+        #     exit(0)
         
-        env = fn(obs_mode=self.config['obs_mode'], control_mode=self.config['control_mode'],reward_mode=self.config['reward_mode'])
+        if fn is not None:
+            env = fn(obs_mode=self.config['obs_mode'], control_mode=self.config['control_mode'],reward_mode=self.config['reward_mode'])
+        else:
+            env = gym.make(self.config['env_name'], obs_mode=self.config['obs_mode'], 
+                           control_mode=self.config['control_mode'], model_ids=self.config['model_ids'])
         if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
             print("Using FrameStackWrapper with num_frames", FLAGS.num_frames)
             env = FrameStackWrapper(env, num_frames=FLAGS.num_frames)
@@ -333,7 +307,7 @@ class Evaluation:
             if self.save_video:
                 imgs.append(self.env.render("rgb_array"))
         if self.save_video:
-            self.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
+            utils.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
         
         return total_reward, success, num_steps, shifted_reward
 
@@ -343,7 +317,7 @@ class Evaluation:
         '''
 
         # Load dataset and split into training and validation
-        dataset = load_dataset(self.config)
+        dataset = utils.load_dataset(self.config)
         if self.config['data_amount']:
             print("loading validation dataset......")
             # print("self.config['data_amount'], len(dataset)", self.config['data_amount'], len(dataset))
@@ -403,15 +377,20 @@ class Evaluation:
                 validate_mse_loss.append(loss_fn(act_gt, act_pred).item())
         
         with open(f"{self.eval_info_path}mse_info.json", 'w') as f:
+            assert validate_dataset is not None
             if validate_dataset:
-                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': np.mean(validate_mse_loss)}, f, indent=4)
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 
+                           'training_data_mse_min': np.min(train_mse_loss),
+                           'training_data_mse_max': np.max(train_mse_loss),
+                           'validation_data_mse': np.mean(validate_mse_loss),
+                           'validation_data_mse_min': np.min(validate_mse_loss),
+                           'validation_data_mse_max': np.max(validate_mse_loss)
+                           }, f, indent=4)
             else:
-                json.dump({'training_data_mse': np.mean(train_mse_loss), 'validation_data_mse': None}, f, indent=4)
-
-
-    def animate(self, imgs, fps=20, path="animate.mp4"):
-        imgs = ImageSequenceClip(imgs, fps=fps)
-        imgs.write_videofile(path, fps=fps)
+                json.dump({'training_data_mse': np.mean(train_mse_loss), 
+                           'training_data_mse_min': np.min(train_mse_loss),
+                           'training_data_mse_max': np.max(train_mse_loss),
+                           'validation_data_mse': None}, f, indent=4)
 
 
     def eval_ibc_task(self):
