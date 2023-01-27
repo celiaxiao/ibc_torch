@@ -21,8 +21,8 @@
 --obs_dim=18432
 --act_dim=7
 # --visual_num_points=1024
---visual_num_points=2048
---visual_num_channels=5
+--visual_num_points=3072
+--visual_num_channels=6
 --visual_output_dim=128
 
 # Visual network configs

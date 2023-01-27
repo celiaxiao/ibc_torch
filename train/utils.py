@@ -158,16 +158,20 @@ def load_customized_dataset(config):
             dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
 
     else:
-        dataset = torch.load(config['dataset_dir'])
+        dataset = torch.load(config['dataset_dir'])    
+    # print("dataset[0][0].size()[0]", dataset[0][0].size()[0], config['obs_dim'])
+    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
+    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
+    return dataset
+
+def load_customized_dataloader(config):
+    dataset = load_customized_dataset(config)
     if config['data_amount']:
         assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
         dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
     dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
         generator=torch.Generator(device='cuda'), 
         shuffle=True)
-    print("dataset[0][0].size()[0]", dataset[0][0].size()[0], config['obs_dim'])
-    assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
-    assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
     return dataloader
 
 def animate(imgs, fps=20, path="animate.mp4"):

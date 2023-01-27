@@ -140,7 +140,7 @@ def train(config):
     agent = create_agent(config, network, optim)
 
     # load dataset
-    dataloader = utils.load_customized_dataset(config)
+    dataloader = utils.load_customized_dataloader(config)
 
     # prepare visualization
     wandb.init(project='ibc', name=config['exp_name'], group=config['env_name'], dir=logging_path, config=config)
