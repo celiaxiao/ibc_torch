@@ -262,14 +262,12 @@ class Evaluation:
         imgs = [self.env.render("rgb_array")]
         shifted_reward = 0
         target_distance = torch.zeros(2)
+        rm_predicted_target = utils.RunningMeanStd(shape=(2))
         # for num_steps in range(len(self.env._max_episode_steps)):
         for num_steps in range(1,self.config['max_episode_steps']+1):
             if done:
                 success = True
                 break
-
-            # print("at step ", num_steps)
-
             # get current observation -- preprocessing handled by env wrapper
             obs = self.env.get_obs()
             if self.config['use_extra']:
@@ -280,13 +278,17 @@ class Evaluation:
                 # flatten obs
                 obs = obs.reshape(-1)
             with torch.no_grad():
+                # if num_steps < 120:
                 batch_observation = torch.Tensor(obs[None, :]).cuda()
                 pretrain_visual_input_dim = config['visual_num_points'] * config['visual_num_channels']
                 pretrain_visual_embed = self.pretrained_network_visual(batch_observation[:,:pretrain_visual_input_dim].reshape((-1, config['visual_num_points'], config['visual_num_channels'])))
                 
                 predict_target = self.pretrained_network(pretrain_visual_embed)
                 target_distance += torch.nn.functional.mse_loss(predict_target.squeeze(), torch.Tensor(extra[21:])).item()
-                extra[21:] = predict_target.cpu().numpy().squeeze()
+                
+                rm_predicted_target.update(predict_target.cpu().numpy())
+                # print(f"[eval | info] {rm_predicted_target.mean=}, gt target {extra[21:]=}")
+                extra[21:] = rm_predicted_target.mean
             if self.config['use_extra']:
                 # print('[eval|info] using extra info as obs. extra info shape', extra.shape)
                 # if len(config['extra_info']) < 4:
@@ -319,7 +321,8 @@ class Evaluation:
                 imgs.append(self.env.render("rgb_array"))
         if self.save_video:
             utils.animate(imgs, path=f"{video_path}_seed={seed}_success={success}.mp4")
-
+        else:
+            print(f"seed={seed}_success={success}")
         target_distance = target_distance / num_steps
         
         return total_reward, success, num_steps, shifted_reward, target_distance.cpu().numpy()
