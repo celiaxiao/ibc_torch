@@ -18,7 +18,7 @@ import numpy as np
 from data.dataset_maniskill import *
 from environments.maniskill.maniskill_env import *
 import gym
-
+import sapien.core as sapien
 from train.utils import animate
 
 flags.DEFINE_string('h5_path', None, 'h5 demo path')
@@ -49,27 +49,62 @@ def load_and_merge_open_cabinet_dataset(stat_path, h5_prefix, raw_data_path, dat
     all_actions = []
     all_rewards = []
     all_dones = []
+    all_obs_val = []
+    all_actions_val = []
+    all_rewards_val = []
+    all_dones_val = []
     stat_file = open(stat_path, "r")
+    model_count = 0
+    model_dict = {}
     for line in stat_file:
         model_ids = line[:4]
         link = line[5]
         print(f"{model_ids=}, {link=}")
         h5_path = os.path.join(h5_prefix, model_ids, f"link_{link}", "trajectory.h5")
         json_path = os.path.join(h5_prefix, model_ids, f"link_{link}", "trajectory.json")
-        target_env = gym.make(FLAGS.env_name, obs_mode=FLAGS.obs_mode, model_ids=model_ids)
+        target_env = gym.make(FLAGS.env_name, obs_mode=FLAGS.obs_mode, model_ids=model_ids, fixed_target_link_idx=int(link))
         # TODO: hardcode extraing 30 episodes per (model, link) 
-        obs, actions, rewards, dones, _ = replay_episodes(h5_path, json_path, target_env, num_train_episodes=30)
+        obs, actions, rewards, dones, _ = replay_episodes(h5_path, json_path, target_env, 
+                                                          num_train_episodes=30)
+        # apply one hot encoding to state based observations
+        if(FLAGS.obs_mode == 'state'):
+            obs = np.array(obs)
+            encoding = np.zeros((len(obs), 66))
+            encoding[:, model_count] = 1
+            obs = np.hstack([obs, encoding])
+            print(f"hstack obs with one hot model id, {obs.shape=}")
+            obs = obs.tolist()
         all_obs = all_obs + obs
         all_actions = all_actions + actions
         all_rewards = all_rewards + rewards
         all_dones = all_dones + dones
+        obs, actions, rewards, dones, _ = replay_episodes(h5_path, json_path, target_env, 
+                                                          num_train_episodes=30, num_val_episodes=5)
+        all_obs_val = all_obs_val + obs
+        all_actions_val = all_actions_val + actions
+        all_rewards_val = all_rewards_val + rewards
+        all_dones_val = all_dones_val + dones
         print(f'finished {model_ids=}, {link=}', len(all_obs), len(all_actions), len(all_rewards), len(all_dones))
+        print(f'finished val {model_ids=}, {link=}', len(all_obs_val), len(all_actions_val), len(all_rewards_val), len(all_dones_val))
+        if model_ids not in model_dict:
+            model_dict[model_ids] = {}
+        model_dict[model_ids][link] = model_count
+        model_count += 1
+        
     if new_h5_path:
         with h5py.File(f"{new_h5_path}/{prefix}_processed.h5", 'w') as f:
             f['observations'] = all_obs
             f['actions'] = all_actions
             f['rewards'] = all_rewards
             f['terminals'] = all_dones
+        with h5py.File(f"{new_h5_path}/{prefix}_val_processed.h5", 'w') as f:
+            f['observations'] = all_obs_val
+            f['actions'] = all_actions_val
+            f['rewards'] = all_rewards_val
+            f['terminals'] = all_dones_val
+        json_model_dict = json.dumps(model_dict)
+        with open(f"{new_h5_path}/models_encode_dict.txt", "w") as outfile:
+            outfile.write(json_model_dict)
         
         
 def replay_episodes(h5_path, json_path, target_env, num_train_episodes=None, num_val_episodes=None):
@@ -85,7 +120,10 @@ def replay_episodes(h5_path, json_path, target_env, num_train_episodes=None, num
     # TODO: not support for generating validation set yet
     if num_train_episodes is not None or num_val_episodes is not None:
         train_episodes, val_episodes = extract_episodes(json_data['episodes'], num_train_episodes, num_val_episodes)
-        json_data['episodes'] = train_episodes
+        if num_val_episodes is not None:
+            json_data['episodes'] = val_episodes
+        else:
+            json_data['episodes'] = train_episodes
         
     for episode in json_data['episodes']:
         for i in range(1):

@@ -1,0 +1,33 @@
+# Sample config file for maniskill hang pointcloud obs mode
+
+# General exp info
+--env_name=Fill-v0
+--control_mode=pd_joint_delta_pos
+--obs_mode=pointcloud
+--reward_mode=dense
+--max_episode_steps=250
+
+--eval_seeds_file=configs/maniskill/Fill-v0.test.stage1.json
+# --eval_seeds_file=/home/caiwei/data/soft_body_envs/Fill-v0/trajectory.json 
+# --extra_info=qpos, qvel, tcp_pose, target
+
+# General eval info
+--num_episodes=50
+--eval_step=10000
+--agent_type=mse
+
+# Network input dimensions
+# --obs_dim=3072
+--obs_dim=18432
+--act_dim=7
+# --visual_num_points=1024
+--visual_num_points=3072
+--visual_num_channels=6
+--visual_output_dim=128
+
+# Visual network configs
+--visual_type=pointnet
+
+# dataset config
+--dataset_dir=/home/caiwei/data/soft_body_envs/Fill-v0/Fill-v0_pointcloud_pd_joint_delta_pos_frames_3_processed.h5
+--data_amount=29454

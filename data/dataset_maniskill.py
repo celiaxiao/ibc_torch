@@ -94,6 +94,28 @@ class maniskill_dataset(Dataset):
         act = self.experiences[idx]['action']
         return obs, act
 
+class noised_target_dataset(maniskill_dataset):
+    '''
+    Dataset for maniskill2 softbody envs, no post processing needed
+    Input:
+    -- observations: list of observations. Need to be pre-processed to 1d. Visual components first.
+    -- actions: list of actions. index should match observations
+    '''
+    def __init__(self, observations, actions, device=None):
+        super().__init__(observations, actions, device)
+
+    def __len__(self):
+        return len(self.experiences)
+
+    def __getitem__(self, idx):
+        obs = self.experiences[idx]['observation']
+        act = self.experiences[idx]['action']
+        target = obs[-2:]
+        # TODO: add 0.1*randome gaussian noise to the target position. 0.1 is determined empirically
+        noised_target = target + torch.randn(2) * 0.1
+        obs[-2:] = noised_target
+        return obs, act
+
 def save_dataset(dataset, env_name):
     print(dataset['observations'].shape, dataset['actions'].shape) # An N x dim_observation Numpy array of observations
 

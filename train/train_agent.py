@@ -167,7 +167,7 @@ def train(config):
             loss_dict = agent.train(experience)
             grad_norm, grad_max, weight_norm, weight_max = network_info(network)
             
-            if agent.train_step_counter % config['log_freq']:
+            if agent.train_step_counter % config['log_freq'] == 0:
                 print(agent.train_step_counter)
                 print("loss at steps", agent.train_step_counter, loss_dict['loss'].mean().item())
             wandb.log({

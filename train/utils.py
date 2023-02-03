@@ -70,11 +70,17 @@ def get_env(config):
             fn = FillEnvPointcloud
         elif config["env_name"] == 'Excavate-v0':
             fn = ExcavateEnvPointcloud
+    elif config['env_name'] == 'OpenCabinetDoor-v1':
+            fn = OpenCabinetDoorState
+        
 
     if fn is not None:
         target_env = fn(control_mode=config["control_mode"], obs_mode=config["obs_mode"])
     else:
         target_env = gym.make(config["env_name"], control_mode=config["control_mode"], obs_mode=config["obs_mode"])
+    if "num_frames" in config and config["num_frames"] is not None:
+        print("Using FrameStackWrapper with num_frames", config["num_frames"])
+        env = FrameStackWrapper(env, num_frames=config["num_frames"])
     return target_env
 
 def load_dataset(config):
@@ -104,18 +110,17 @@ def load_dataset(config):
         # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
         dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
     else:
-        dataset = torch.load(config['dataset_dir'])
-    if config['data_amount']:
-        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
-        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
-    
-    # print("config['obs_dim'], dataset[0][0].size()[0]", config['obs_dim'], dataset[0][0].size()[0])
+        dataset = torch.load(config['dataset_dir'])    
+    print("config['obs_dim'], dataset[0][0].size()[0]", config['obs_dim'], dataset[0][0].size()[0])
     assert config['obs_dim']==dataset[0][0].size()[0], "obs_dim in dataset mismatch config"
     assert config['act_dim']==dataset[0][1].size()[0], "act_dim in dataset mismatch config"
 
     return dataset
 
 def load_dataloader(config):
+    if config['data_amount']:
+        assert config['data_amount'] <= len(dataset), f"Not enough data for {config['data_amount']} pairs!"
+        dataset = torch.utils.data.Subset(dataset, range(config['data_amount']))
     dataset = load_dataset(config)
     dataloader = DataLoader(dataset, batch_size=config['batch_size'], 
         generator=torch.Generator(device='cuda'), 

@@ -123,7 +123,7 @@ class Evaluation:
                 self.env_name, 1, config['goal_tolerance'], 1)
             self.env_name_clean = self.env_name.replace('/', '_')
         else:
-            self.env = self.create_env()
+            self.env = utils.get_env(config)
 
         # Create network and load from checkpoint
         self.network_visual, self.network = self.create_and_load_network()
@@ -159,6 +159,9 @@ class Evaluation:
                 fn = ExcavateEnvParticle
             elif self.config['obs_mode'] == 'pointcloud':
                 fn = ExcavateEnvPointcloud 
+        
+        elif self.config['env_name'] == 'OpenCabinetDoor-v1':
+            fn = OpenCabinetDoorState
         
         #     print(f"Env {self.config['env_name']} obs mode {self.config['obs_mode']} not supported! Exiting")
         #     exit(0)

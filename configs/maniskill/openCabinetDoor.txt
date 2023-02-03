@@ -2,14 +2,13 @@
 
 # General exp infos
 --env_name=OpenCabinetDoor-v1
---obs_mode=stated
+--obs_mode=state
 # --control_mode=base_pd_joint_vel_arm_pd_joint_vel
 
 --dataset_dir=/home/caiwei/data/rigid_body_envs/OpenCabinetDoor-v1/OpenCabinetDoor-v1_state_base_pd_joint_vel_arm_pd_joint_vel_processed.h5
---data_amount=45000
 
 # Network input dimensions
---obs_dim=75
+--obs_dim=141
 --act_dim=12
 --visual_num_points=3072
 --visual_num_channels=6

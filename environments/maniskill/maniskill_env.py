@@ -1,9 +1,11 @@
 from mani_skill2.envs.mpm.hang_env import HangEnv
 from mani_skill2.envs.mpm.fill_env import FillEnv
 from mani_skill2.envs.mpm.excavate_env import ExcavateEnv
+from mani_skill2.envs.ms1.open_cabinet_door_drawer import OpenCabinetDoorEnv
 import numpy as np
 from numpy.random import default_rng
 from gym.core import Wrapper
+import json
 
 from pyrl.utils.data import GDict
 from pyrl.utils.meta import Registry
@@ -184,3 +186,21 @@ class FrameStackWrapper(ExtendedWrapper):
     
     def get_obs(self):
         return self.observation()
+
+class OpenCabinetDoorState(OpenCabinetDoorEnv):
+    def __init__(self, *args, **kwargs):
+        
+        self._max_episode_steps = 200
+        self.model_dict = json.load(open('/home/caiwei/data/rigid_body_envs/OpenCabinetDoor-v1/models_encode_dict.txt'))
+        super().__init__(*args, **kwargs)
+        # self.model_encoding = model_encoding
+        
+    def get_obs(self):
+        obs = super().get_obs()
+        # print(f"{self.model_id=}, {self.target_link_idx=}")
+        model_count = self.model_dict[self.model_id][str(self.target_link_idx)]
+        model_encoding = np.zeros(66)
+        model_encoding[model_count] = 1
+        return np.hstack([obs, model_encoding])
+        
+        
