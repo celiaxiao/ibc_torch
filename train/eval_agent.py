@@ -35,7 +35,8 @@ flags.DEFINE_string('reward_mode', 'dense', 'If using dense reward')
 flags.DEFINE_integer('max_episode_steps', 350, 'Max step allowed in env')
 flags.DEFINE_boolean('use_extra', False, 'whether using extra information as observations')
 flags.DEFINE_integer('num_frames', None, 'number of frames to stack. If > 1, will use a frame_stack wrapper')
-flags.DEFINE_string('dataset_dir', None, 'Demo data path')
+flags.DEFINE_string('dataset_dir', None, 'Demo (train) data path')
+flags.DEFINE_string('val_dataset_dir', None, 'Validation data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
 flags.DEFINE_string('eval_seeds_file', None, 'Json file that contains evaluation seeds')
@@ -214,7 +215,7 @@ class Evaluation:
         '''
         if not os.path.exists(self.eval_info_path+'videos/'):
             os.makedirs(self.eval_info_path+'videos/')
-        known_seed = [3,7,8,9,10]
+
         rewards_info = np.zeros(self.config['num_episodes'])
         shifted_rewards_info = np.zeros(self.config['num_episodes'])
         success_info = np.zeros(self.config['num_episodes'])
@@ -330,7 +331,7 @@ class Evaluation:
             assert validate_dataset is not None
         else:
             train_dataset = dataset
-            validate_dataset = None
+            validate_dataset = utils.load_validation_dataset(self.config)
 
         # train_dataset = torch.utils.data.Subset(train_dataset, np.random.choice(range(len(train_dataset)), size=200))
         # if validate_dataset and len(validate_dataset) > 200:

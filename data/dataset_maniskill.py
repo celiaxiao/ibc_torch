@@ -79,8 +79,8 @@ class maniskill_dataset(Dataset):
             device = torch.device('cuda')
         for idx in range(len(observations)):
             exp = {}
-            exp['observation'] = torch.tensor(observations[idx]).to(device)
-            exp['action'] = torch.tensor(actions[idx]).to(device)
+            exp['observation'] = torch.tensor(observations[idx]).float().to(device)
+            exp['action'] = torch.tensor(actions[idx]).float().to(device)
             experiences.append(exp)
             # print(exp['observation'].shape)
             # exit(0)

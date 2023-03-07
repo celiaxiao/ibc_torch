@@ -1,3 +1,4 @@
+from environments.maniskill.composition_env import CompositionPoints
 from network import mlp_ebm, mlp
 from network.layers import pointnet, resnet
 from environments.maniskill.maniskill_env import *
@@ -72,21 +73,30 @@ def get_env(config):
             fn = ExcavateEnvPointcloud
     elif config['env_name'] == 'OpenCabinetDoor-v1':
             fn = OpenCabinetDoorState
+    elif config['env_name'] == 'CompositionPoints-v0':
+        fn = CompositionPoints
         
 
     if fn is not None:
         target_env = fn(control_mode=config["control_mode"], obs_mode=config["obs_mode"])
     else:
-        target_env = gym.make(config["env_name"], control_mode=config["control_mode"], obs_mode=config["obs_mode"])
+        target_env = gym.make(config["env_name"], control_mode=config["control_mode"], obs_mode=config["obs_mode"], model_ids='1000')
     if "num_frames" in config and config["num_frames"] is not None:
         print("Using FrameStackWrapper with num_frames", config["num_frames"])
         env = FrameStackWrapper(env, num_frames=config["num_frames"])
     return target_env
 
+def load_validation_dataset(config):
+    if config['val_dataset_dir'] is not None:
+        config['dataset_dir'] = config['val_dataset_dir']
+        return load_dataset(config)
+    return None
+    
 def load_dataset(config):
     if 'h5' in config['dataset_dir']:
         from diffuser.datasets.d4rl import get_dataset_from_h5
         env = get_env(config)
+        print(f"loading dataset from {config['dataset_dir']=}")
         dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
 
         print("[dataset|info] raw observation dim", dataset['observations'].shape)
