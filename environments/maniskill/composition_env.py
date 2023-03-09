@@ -7,12 +7,14 @@ class CompositionPoints(gym.Env):
     def __init__(self, obs_mode=4, control_mode=1e-2, *args, **kwargs) -> None:
         super().__init__()
         self.num_points = int(obs_mode)
+        # control mode indicate the pointwise-atol
         self.atol = float(control_mode)
         self.observation_space = gym.spaces.Box(low=0, high=1, shape=(self.num_points*4,))
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(self.num_points*2,))
         self.curr = np.random.rand(self.num_points, 2) 
         self.end = np.random.rand(self.num_points, 2) 
-        self._max_episode_steps = 100
+        self._max_episode_steps = self.num_points * 50
+
     
     def evaluate(self):
         return -np.linalg.norm(self.curr - self.end)
