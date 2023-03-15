@@ -2,6 +2,7 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from sklearn.neighbors import NearestNeighbors
 class CompositionPoints(gym.Env):
     
     def __init__(self, obs_mode=4, control_mode=1e-2, *args, **kwargs) -> None:
@@ -23,11 +24,14 @@ class CompositionPoints(gym.Env):
         observation = np.concatenate([self.curr, self.end], axis=-1).flatten()
         return observation
     
+    def is_done(self):
+        return np.allclose(self.curr, self.end, atol=self.atol)
+    
     def step(self, action):
         self.curr += action.reshape(self.curr.shape)
         self.curr = np.clip(self.curr, 0, 1)
         reward = self.evaluate()
-        done = np.allclose(self.curr, self.end, atol=self.atol)
+        done = self.is_done()
         observation = self.get_obs()
         return observation, reward, done, {}
 
@@ -58,3 +62,17 @@ class CompositionPoints(gym.Env):
     def seed(self, seed):
         np.random.seed(seed)
 
+class CompositionPointsCluster(CompositionPoints):
+    def __init__(self, obs_mode=4, control_mode=1e-2, *args, **kwargs) -> None:
+        super().__init__(obs_mode, control_mode, *args, **kwargs)
+        self.neigh = NearestNeighbors(n_neighbors=1, radius=self.atol)
+        self.neigh.fit(self.end)
+        
+    def is_done(self):
+        distances, _ = self.neigh.kneighbors(self.curr)
+        return np.allclose(distances, 0, atol=self.atol)
+
+    def evaluate(self):
+        distances, _ = self.neigh.kneighbors(self.curr)
+        return distances.sum()
+        
