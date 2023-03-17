@@ -65,11 +65,17 @@ class CompositionPoints(gym.Env):
 class CompositionPointsCluster(CompositionPoints):
     def __init__(self, obs_mode=4, control_mode=1e-2, *args, **kwargs) -> None:
         super().__init__(obs_mode, control_mode, *args, **kwargs)
-        self.neigh = NearestNeighbors(n_neighbors=1, radius=self.atol)
+        self.neigh = NearestNeighbors(n_neighbors=1)
         self.neigh.fit(self.end)
+    
+    def reset(self, seed=None):
+        observation = super().reset(seed)
+        self.neigh.fit(self.end)
+        return observation
         
     def is_done(self):
-        distances, _ = self.neigh.kneighbors(self.curr)
+        distances, _ = self.neigh.kneighbors(self.curr, 1)
+        print(f"{distances=}, {self.curr=}, {self.end=}")
         return np.allclose(distances, 0, atol=self.atol)
 
     def evaluate(self):
