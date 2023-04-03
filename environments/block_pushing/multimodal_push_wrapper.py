@@ -2,7 +2,10 @@ import numpy as np
 from environments.block_pushing.block_pushing_multimodal import BlockPushMultimodal
 
 class BlockPushMultimodalWrapper(BlockPushMultimodal):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, obs_mode, control_mode, *args, **kwargs):
+        '''
+        obs_mode: state or rgb
+        '''
         super().__init__(*args, **kwargs)
     
     def get_obs(self):

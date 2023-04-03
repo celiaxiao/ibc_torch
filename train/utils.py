@@ -1,4 +1,5 @@
 from environments.maniskill.composition_env import CompositionPoints
+from environments.block_pushing.multimodal_push_wrapper import BlockPushMultimodalWrapper
 from network import mlp_ebm, mlp
 from network.layers import pointnet, resnet
 from environments.maniskill.maniskill_env import *
@@ -75,7 +76,8 @@ def get_env(config):
             fn = OpenCabinetDoorState
     elif config['env_name'] == 'CompositionPoints-v0':
         fn = CompositionPoints
-        
+    elif config['env_name'] == 'BlockPushMultimodal-v0':
+        fn = BlockPushMultimodalWrapper
 
     if fn is not None:
         target_env = fn(control_mode=config["control_mode"], obs_mode=config["obs_mode"])
