@@ -75,7 +75,6 @@ class CompositionPointsCluster(CompositionPoints):
         
     def is_done(self):
         distances, _ = self.neigh.kneighbors(self.curr, 1)
-        print(f"{distances=}, {self.curr=}, {self.end=}")
         return np.allclose(distances, 0, atol=self.atol)
 
     def evaluate(self):
