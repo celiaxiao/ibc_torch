@@ -187,7 +187,7 @@ def main(argv):
           'Num episodes:', num_episodes, 'Num failures:', num_failures )
       print('Avg steps:', total_num_steps / num_episodes)
       if FLAGS.new_h5_path:
-        with h5py.File(f"{FLAGS.new_h5_path}/{prefix}_processed.h5", 'w') as f:
+        with h5py.File(f"{FLAGS.new_h5_path}/{prefix}_val_processed.h5", 'w') as f:
             f['observations'] = all_obs
             f['actions'] = all_actions
             f['rewards'] = all_rewards

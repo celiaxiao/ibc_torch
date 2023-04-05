@@ -15,3 +15,9 @@ class BlockPushMultimodalWrapper(BlockPushMultimodal):
                                       obs_dict['effector_translation'], obs_dict['effector_target_translation']], axis=-1).flatten()
         
         return observation
+    
+    def reset(self, seed=None, reset_poses = True):
+        if seed is not None:
+            np.random.seed(seed)
+        observation = super().reset(reset_poses)
+        return observation
