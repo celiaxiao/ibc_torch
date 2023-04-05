@@ -7,6 +7,7 @@ class BlockPushMultimodalWrapper(BlockPushMultimodal):
         obs_mode: state or rgb
         '''
         super().__init__(*args, **kwargs)
+        self._max_episode_steps = self.max_episode_steps
     
     def get_obs(self):
         obs_dict = super()._compute_state()
