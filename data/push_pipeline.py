@@ -35,6 +35,7 @@ import tensorflow as tf
 from tf_agents.environments import suite_gym  # pylint: disable=unused-import,g-bad-import-order
 from tf_agents.trajectories import policy_step
 from torch.utils.data import Dataset
+from environments.maniskill.maniskill_env import FrameStackWrapper
 from train import utils
 
 flags.DEFINE_string(
@@ -65,6 +66,7 @@ flags.DEFINE_bool('video', False,
                   'If true record a video of the evaluations.')
 flags.DEFINE_string('video_path', None, 'Path to save videos at.')
 flags.DEFINE_string('new_h5_path', None, 'Path to save processed h5 file')
+flags.DEFINE_integer('num_frames', None, 'number of frames to stack. If > 1, will use a frame_stack wrapper')
 
 FLAGS = flags.FLAGS
 flags.mark_flags_as_required(['task'])
@@ -81,7 +83,9 @@ def main(argv):
       fixed_start_poses=FLAGS.fixed_start_poses,
       noisy_ee_pose=FLAGS.noisy_ee_pose,
       max_episode_steps=np.inf if FLAGS.no_episode_step_limit else None)
-
+  if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
+        print("Using FrameStackWrapper with num_frames", FLAGS.num_frames)
+        env = FrameStackWrapper(env, num_frames=FLAGS.num_frames)
   # Get an oracle.
   oracle_policy = get_oracle_module.get_oracle(env, FLAGS.task)
 
@@ -101,10 +105,13 @@ def main(argv):
   imgs = []
   
   prefix = f"{FLAGS.task}"
+  if FLAGS.num_frames is not None and FLAGS.num_frames > 0:
+    prefix = prefix + f"_frames_{FLAGS.num_frames}"
   savePyBulletState = FLAGS.task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED',
                           'PUSH_DISCONTINUOUS', 'PUSH_MULTIMODAL']
   while True:
-    logging.info('Starting episode %d.', num_episodes)
+    np.random.seed(num_episodes)
+    logging.info('Starting episode %d. with seed %d', num_episodes, num_episodes)
     episode_data = serialize_module.EpisodeData(
         time_step=[], action=[], pybullet_state=[])
 
@@ -187,7 +194,7 @@ def main(argv):
           'Num episodes:', num_episodes, 'Num failures:', num_failures )
       print('Avg steps:', total_num_steps / num_episodes)
       if FLAGS.new_h5_path:
-        with h5py.File(f"{FLAGS.new_h5_path}/{prefix}_val_processed.h5", 'w') as f:
+        with h5py.File(f"{FLAGS.new_h5_path}/{prefix}_10kdemo_processed.h5", 'w') as f:
             f['observations'] = all_obs
             f['actions'] = all_actions
             f['rewards'] = all_rewards

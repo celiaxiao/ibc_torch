@@ -165,9 +165,25 @@ class BlockPushMultimodal(block_pushing.BlockPush):
     # Reject targets too close to `avoid`.
     for _ in range(NUM_RESET_ATTEMPTS):
       # Reset first block.
-      b0_translation = _reset_block_pose(0)
+      # TODO hardcode train set
+      b0_translation = np.array([0.3152807,  -0.1591742, 0])
+      block_rotation = transform.Rotation.from_rotvec(
+          [0, 0, 2.926624]).as_quat().tolist()
+      
+      self._pybullet_client.resetBasePositionAndOrientation(
+          self._block_ids[0], b0_translation.tolist(),
+          block_rotation)
+      # b0_translation = _reset_block_pose(0)
+      
       # Reset second block away from first block.
-      b1_translation = _reset_block_pose(1, avoid=b0_translation)
+      # b1_translation = _reset_block_pose(1, avoid=b0_translation)
+      b1_translation = np.array([0.46471682, -0.11998235, 0])
+      block_rotation = transform.Rotation.from_rotvec(
+          [0, 0, 2.5697417]).as_quat().tolist()
+      
+      self._pybullet_client.resetBasePositionAndOrientation(
+          self._block_ids[1], b1_translation.tolist(),
+          block_rotation)
       dist = np.linalg.norm(b0_translation[0] - b1_translation[0])
       if dist > MIN_BLOCK_DIST:
         break
@@ -209,8 +225,21 @@ class BlockPushMultimodal(block_pushing.BlockPush):
 
     for _ in range(NUM_RESET_ATTEMPTS):
       # Choose the first target.
-      _reset_target_pose(0)
-      _reset_target_pose(1, avoid=self._target_poses[0].translation)
+      # _reset_target_pose(0)
+      # _reset_target_pose(1, avoid=self._target_poses[0].translation)
+      # TODO: hardcode train set
+      self._pybullet_client.resetBasePositionAndOrientation(
+          self._target_ids[0], [0.34054637,  0.17798713, 0.020],
+          transform.Rotation.from_rotvec(
+          [0, 0, -3.1063259]).as_quat().tolist())
+      self._target_poses[0] = Pose3d(rotation=transform.Rotation.from_rotvec(
+          [0, 0, -3.1063259]),translation=(np.array([0.34054637,  0.17798713, 0.020])))
+      self._pybullet_client.resetBasePositionAndOrientation(
+          self._target_ids[1], [0.46949494,  0.12652373, 0.020],
+          transform.Rotation.from_rotvec(
+          [0, 0, -2.9841821]).as_quat().tolist())
+      self._target_poses[1] = Pose3d(rotation=transform.Rotation.from_rotvec(
+          [0, 0, -2.9841821]),translation=(np.array([0.46949494,  0.12652373, 0.020])))
       dist = np.linalg.norm(self._target_poses[0].translation[0] -
                             self._target_poses[1].translation[0])
       if dist > MIN_TARGET_DIST:

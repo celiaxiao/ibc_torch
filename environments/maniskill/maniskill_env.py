@@ -61,7 +61,7 @@ class HangEnvState(HangEnv):
     def reset(self, seed=0, reconfigure=True):
         rng = default_rng(seed=seed)
         reset_seed, reset_target = self.all_targets[rng.choice(len(self.all_targets), 1)[0]]
-        print(reset_seed, reset_target)
+        # print(reset_seed, reset_target)
         self.target = reset_target
         super().reset(seed=reset_seed, reconfigure=reconfigure)
 
@@ -172,17 +172,21 @@ class FrameStackWrapper(ExtendedWrapper):
             obs['extra'] = last_extra_info
             return obs
         else:
-            return GDict.concat(self.frames, axis=-3, wrapper=False)
+            return GDict.concat(self.frames, axis=0, wrapper=False)
 
     def step(self, actions, idx=None):
         next_obs, rewards, dones, infos = self.env.step(actions)
-        self.frames = self.frames[1:] + [next_obs]
-        return self.observation(), rewards, dones, infos
+        self.frames = self.frames[1:] + [dict(next_obs)]
+        return self.frames, rewards, dones, infos
 
     def reset(self, **kwargs):
-        obs = self.env.reset(**kwargs)
+        obs_dict = self.env.reset(**kwargs)
+        print(obs_dict)
+        obs = np.concatenate([obs_dict['block_translation'], obs_dict['block_orientation'], obs_dict['target_translation'], obs_dict['target_orientation'],
+                                      obs_dict['block2_translation'], obs_dict['block2_orientation'], obs_dict['target2_translation'], obs_dict['target2_orientation'],
+                                      obs_dict['effector_translation'], obs_dict['effector_target_translation']], axis=-1).flatten()
         self.frames = [obs] * self.num_frames
-        return self.observation()
+        return self.frames
     
     def get_obs(self):
         return self.observation()

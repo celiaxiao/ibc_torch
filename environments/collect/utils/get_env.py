@@ -33,7 +33,7 @@ def get_env(task,
   del use_image_obs
   del fixed_start_poses
   del noisy_ee_pose
-  print(task, task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED'])
+  # print(task, task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED'])
   if task in ['REACH', 'PUSH', 'INSERT', 'REACH_NORMALIZED', 'PUSH_NORMALIZED']:
     # Options are supported through flags to build_env_name, and different
     # registered envs.
