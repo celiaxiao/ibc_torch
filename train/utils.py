@@ -93,14 +93,41 @@ def load_validation_dataset(config):
         config['dataset_dir'] = config['val_dataset_dir']
         return load_dataset(config)
     return None
-    
-def load_dataset(config):
-    if 'h5' in config['dataset_dir']:
-        from diffuser.datasets.d4rl import get_dataset_from_h5
-        env = get_env(config)
-        print(f"loading dataset from {config['dataset_dir']=}")
-        dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
 
+class Normalizer:
+    def __init__(self, data):
+        self.means = dict()
+        for key in data.keys():
+            try:
+                self.means[key] = data[key].mean()
+            except:  # noqa: E722
+                pass
+        self.stds = dict()
+        for key in data.keys():
+            try:
+                self.stds[key] = data[key].std()
+            except:  # noqa: E722
+                pass
+        print("means", self.means)
+
+    def normalize(self, x_in, key):
+        return (x_in - self.means[key]) / self.stds[key]
+
+    def denormalize(self, x_in, key):
+        return x_in * self.stds[key] + self.means[key]
+
+def load_h5_dataset(config):
+    from diffuser.datasets.d4rl import get_dataset_from_h5
+    env = get_env(config)
+    print(f"loading dataset from {config['dataset_dir']=}")
+    dataset = get_dataset_from_h5(env, h5path=config['dataset_dir'])
+    return dataset
+        
+def load_dataset(config):
+    normalizer = None
+    if 'h5' in config['dataset_dir']:
+        
+        dataset = load_h5_dataset(config)
         print("[dataset|info] raw observation dim", dataset['observations'].shape)
          # only keep xyz for pointcloud dataset
         if config["obs_mode"] == "pointcloud":
@@ -120,7 +147,12 @@ def load_dataset(config):
             print("[dataset|info] using extra info as observation. extra dim", dataset['extra'].shape)
             dataset['observations'] = np.concatenate([dataset['observations'], dataset['extra']], axis = -1)
         # np.save('/home/yihe/ibc_torch/work_dirs/demos/hang_obs.npy', np.array(observations, dtype=object))
-        dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda')
+        if config['normalize']:
+            normalizer = Normalizer(dataset)
+        if config['noise']:
+            dataset = noised_dataset(dataset['observations'], dataset['actions'], 'cuda', normalizer=normalizer)
+        else:
+            dataset = maniskill_dataset(dataset['observations'], dataset['actions'], 'cuda', normalizer=normalizer)
     else:
         dataset = torch.load(config['dataset_dir'])    
     print("config['obs_dim'], dataset[0][0].size()[0]", config['obs_dim'], dataset[0][0].size()[0])

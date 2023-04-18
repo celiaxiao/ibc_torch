@@ -166,24 +166,24 @@ class BlockPushMultimodal(block_pushing.BlockPush):
     for _ in range(NUM_RESET_ATTEMPTS):
       # Reset first block.
       # TODO hardcode train set
-      b0_translation = np.array([0.3152807,  -0.1591742, 0])
-      block_rotation = transform.Rotation.from_rotvec(
-          [0, 0, 2.926624]).as_quat().tolist()
-      
-      self._pybullet_client.resetBasePositionAndOrientation(
-          self._block_ids[0], b0_translation.tolist(),
-          block_rotation)
-      # b0_translation = _reset_block_pose(0)
+      b0_translation = _reset_block_pose(0)
       
       # Reset second block away from first block.
-      # b1_translation = _reset_block_pose(1, avoid=b0_translation)
-      b1_translation = np.array([0.46471682, -0.11998235, 0])
-      block_rotation = transform.Rotation.from_rotvec(
-          [0, 0, 2.5697417]).as_quat().tolist()
+      b1_translation = _reset_block_pose(1, avoid=b0_translation)
+      # b0_translation = np.array([0.3152807,  -0.1591742, 0])
+      # block_rotation = transform.Rotation.from_rotvec(
+      #     [0, 0, 2.926624]).as_quat().tolist()
       
-      self._pybullet_client.resetBasePositionAndOrientation(
-          self._block_ids[1], b1_translation.tolist(),
-          block_rotation)
+      # self._pybullet_client.resetBasePositionAndOrientation(
+      #     self._block_ids[0], b0_translation.tolist(),
+      #     block_rotation)
+      # b1_translation = np.array([0.46471682, -0.11998235, 0])
+      # block_rotation = transform.Rotation.from_rotvec(
+      #     [0, 0, 2.5697417]).as_quat().tolist()
+      
+      # self._pybullet_client.resetBasePositionAndOrientation(
+      #     self._block_ids[1], b1_translation.tolist(),
+      #     block_rotation)
       dist = np.linalg.norm(b0_translation[0] - b1_translation[0])
       if dist > MIN_BLOCK_DIST:
         break

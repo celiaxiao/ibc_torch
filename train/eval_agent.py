@@ -38,6 +38,10 @@ flags.DEFINE_integer('num_frames', None, 'number of frames to stack. If > 1, wil
 flags.DEFINE_string('dataset_dir', None, 'Demo (train) data path')
 flags.DEFINE_string('val_dataset_dir', None, 'Validation data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
+flags.DEFINE_boolean('normalize', False,
+                     'normalize the observation and action')
+flags.DEFINE_boolean('noise', False,
+                     'add noise to the observation')
 flags.DEFINE_float('single_step_max_reward', 0, 'Max reward possible in each env.step()')
 flags.DEFINE_string('eval_seeds_file', None, 'Json file that contains evaluation seeds')
 flags.DEFINE_integer('main_test_seed', 0, 'seed for episode seed generator if eval seeds file not provided')
@@ -125,6 +129,9 @@ class Evaluation:
             self.env_name_clean = self.env_name.replace('/', '_')
         else:
             self.env = utils.get_env(config)
+        
+        if self.config['normalize']:
+            self.create_normalizer()
 
         # Create network and load from checkpoint
         self.network_visual, self.network = self.create_and_load_network()
@@ -140,6 +147,11 @@ class Evaluation:
         if not os.path.exists(self.eval_info_path):
             os.makedirs(self.eval_info_path)
 
+    def create_normalizer(self):
+        dataset = utils.load_h5_dataset(self.config)
+        self.normalizer = utils.Normalizer(dataset)
+        
+        
     def create_env(self):
         # manually select env to create
         fn = None
@@ -287,7 +299,8 @@ class Evaluation:
                         'tcp_pose': extra[14:21], 'target': extra[21:]}
                     extra = np.concatenate([extra_dict[info_name] for info_name in config['extra_info']], axis = -1)
                 obs = np.concatenate([obs, extra], axis=-1)
-            
+            if config['normalize']:
+                obs = self.normalizer.normalize(obs, 'observations')
             obs = torch.tensor(obs).to(device, dtype=torch.float).expand(1, -1)
             
             if self.network_visual is not None:
@@ -299,9 +312,13 @@ class Evaluation:
             act = self.ibc_policy.act({'observations':obs}).squeeze()
             # print('act shape', act.shape)
             # print("prediceted action", act)
-
+            act = act.detach().cpu().numpy()
+            if self.config['normalize']:
+                # print('prenormalize action', act)
+                act = self.normalizer.denormalize(act, 'actions')
+                # print("denormalize action", act)
             # step and get rew, done
-            _, rew, done, _ = self.env.step(act.detach().cpu().numpy())
+            _, rew, done, _ = self.env.step(act)
             # print("Current step reward:", rew)
             # print("Traj is done:", bool(done))
 
@@ -337,7 +354,7 @@ class Evaluation:
         # if validate_dataset and len(validate_dataset) > 200:
         #     validate_dataset = torch.utils.data.Subset(validate_dataset, np.random.choice(range(len(validate_dataset)), size=200))
         # print(len(dataset))
-        train_dataloader = DataLoader(train_dataset, batch_size=64, 
+        train_dataloader = DataLoader(train_dataset, batch_size=1, 
             generator=torch.Generator(device='cuda'), 
             shuffle=True)
         if validate_dataset:
@@ -357,10 +374,7 @@ class Evaluation:
                 visual_embed = self.network_visual(obs[:,:visual_input_dim].reshape((-1, self.config['visual_num_points'], config['visual_num_channels'])))
                 obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
 
-            # print(obs.shape, act_gt.shape)
-
             act_pred = self.ibc_policy.act({'observations':obs})
-
             train_mse_loss.append(loss_fn(act_gt, act_pred).item())
 
 
@@ -376,7 +390,6 @@ class Evaluation:
                     obs = torch.concat([visual_embed, obs[:,visual_input_dim:]], -1)
 
                 act_pred = self.ibc_policy.act({'observations':obs})
-
                 # print("validate", loss_fn(act_gt, act_pred).item())
                 validate_mse_loss.append(loss_fn(act_gt, act_pred).item())
         
@@ -395,6 +408,7 @@ class Evaluation:
                            'training_data_mse_min': np.min(train_mse_loss),
                            'training_data_mse_max': np.max(train_mse_loss),
                            'validation_data_mse': None}, f, indent=4)
+        return train_mse_loss
 
 
     def eval_ibc_task(self):
@@ -478,4 +492,23 @@ if __name__ == "__main__":
     elif FLAGS.num_episodes > 0:
         eval.run_eval()
     if FLAGS.compute_mse:
-        eval.compute_mse()
+        errs = eval.compute_mse()
+        # plot compounding error
+        errs = np.cumsum(errs)
+        import matplotlib.pyplot as plt
+        # Create x-axis values as the index of each error value
+        x_values = range(len(errs))
+
+        # Plot the errors
+        plt.plot(x_values, errs)
+
+        # Add axis labels and title
+        plt.xlabel('Index')
+        plt.ylabel('Error Value')
+        plt.title('Error Plot')
+
+        # Show the plot
+        plt.savefig(f"{eval.eval_info_path}mse_plot.png")
+        print(errs)
+
+    

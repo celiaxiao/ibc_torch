@@ -27,7 +27,10 @@ flags.DEFINE_boolean('use_extra', False, 'whether using extra information as obs
 flags.DEFINE_string('dataset_dir', None, 'Demo data path')
 flags.DEFINE_integer('data_amount', None, 'Number of (obs, act) pair use in training data')
 flags.DEFINE_list('extra_info', ['qpos', 'qvel', 'tcp_pose', 'target'], "list of extra information to include")
-
+flags.DEFINE_boolean('normalize', False,
+                     'normalize the observation and action')
+flags.DEFINE_boolean('noise', False,
+                     'add noise to the observation')
 # General training config
 flags.DEFINE_integer('batch_size', 512, 'Training batch size')
 flags.DEFINE_float('lr', 5e-4, 'Initial optimizer learning rate')

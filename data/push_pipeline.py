@@ -176,10 +176,10 @@ def main(argv):
       all_dones += dones
 
       total_num_steps += len(episode_data.action)
-      print('Recording', len(episode_data.action), 'length episode to shard',cur_observer)
+      print('Recording', len(episode_data.action), 'length episode')
       print(len(all_obs), len(all_actions), len(all_rewards), len(all_dones))
-      if FLAGS.video:
-        utils.animate(imgs, path=f"{FLAGS.video_path}_{FLAGS.task}_demo.mp4")
+    if FLAGS.video:
+      utils.animate(imgs, path=f"{FLAGS.video_path}_{FLAGS.task}_demo.mp4")
       # print(obs)
       # print(act)
     if num_episodes >= FLAGS.num_episodes:
@@ -194,7 +194,7 @@ def main(argv):
           'Num episodes:', num_episodes, 'Num failures:', num_failures )
       print('Avg steps:', total_num_steps / num_episodes)
       if FLAGS.new_h5_path:
-        with h5py.File(f"{FLAGS.new_h5_path}/{prefix}_10kdemo_processed.h5", 'w') as f:
+        with h5py.File(f"{FLAGS.new_h5_path}/{prefix}_fix_target_10k_processed.h5", 'w') as f:
             f['observations'] = all_obs
             f['actions'] = all_actions
             f['rewards'] = all_rewards

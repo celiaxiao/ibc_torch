@@ -9,6 +9,7 @@ class BlockPushMultimodalWrapper(BlockPushMultimodal):
         '''
         super().__init__(*args, **kwargs)
         self._max_episode_steps = 200
+        self.action_range = 0.03
     
     def get_obs(self):
         obs_dict = super()._compute_state()
@@ -24,6 +25,10 @@ class BlockPushMultimodalWrapper(BlockPushMultimodal):
                                       obs_dict['effector_translation'], obs_dict['effector_target_translation']], axis=-1).flatten()
     
     def step(self, action):
+        '''
+        action: [-1, 1] action space. scale it to demo range [-0.03, 0.03]
+        '''
+        action = self.action_range * action
         observation, reward, done, info = super().step(action)
         return self.flatten_obs(observation), reward, done, info
     

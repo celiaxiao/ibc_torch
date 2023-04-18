@@ -72,49 +72,51 @@ class maniskill_dataset(Dataset):
     Input:
     -- observations: list of observations. Need to be pre-processed to 1d. Visual components first.
     -- actions: list of actions. index should match observations
+    -- normalizer: instance of the Normalizer class
+    -- device: device to use for torch tensors (default is 'cuda')
     '''
-    def __init__(self, observations, actions, device=None):
-        experiences = []
+    def __init__(self, observations, actions, device=None, normalizer=None):
         if device is None:
             device = torch.device('cuda')
-        for idx in range(len(observations)):
-            exp = {}
-            exp['observation'] = torch.tensor(observations[idx]).float().to(device)
-            exp['action'] = torch.tensor(actions[idx]).float().to(device)
-            experiences.append(exp)
-            # print(exp['observation'].shape)
-            # exit(0)
-        self.experiences = experiences
+        self.normalizer = normalizer
+        if self.normalizer is not None:
+            # Normalize the data
+            observations = self.normalizer.normalize(observations, 'observations')
+            actions = self.normalizer.normalize(actions, 'actions')
+        self.observations = torch.tensor(observations).float().to(device)
+        self.actions = torch.tensor(actions).float().to(device)
+        
 
     def __len__(self):
-        return len(self.experiences)
+        return len(self.observations)
 
     def __getitem__(self, idx):
-        obs = self.experiences[idx]['observation']
-        act = self.experiences[idx]['action']
-        return obs, act
+        obs = self.observations[idx]
+        act = self.actions[idx]
+        return (obs, act)
 
-class noised_target_dataset(maniskill_dataset):
+class noised_dataset(maniskill_dataset):
     '''
     Dataset for maniskill2 softbody envs, no post processing needed
     Input:
     -- observations: list of observations. Need to be pre-processed to 1d. Visual components first.
     -- actions: list of actions. index should match observations
     '''
-    def __init__(self, observations, actions, device=None):
-        super().__init__(observations, actions, device)
+    def __init__(self, observations, actions, *arg, **kwargs):
+        super().__init__(observations, actions, *arg, **kwargs)
+        self.std = self.observations.std()
+        print('add noise with std: ', self.std)
 
     def __len__(self):
-        return len(self.experiences)
+        return len(self.observations)
 
     def __getitem__(self, idx):
-        obs = self.experiences[idx]['observation']
-        act = self.experiences[idx]['action']
-        target = obs[-2:]
-        # TODO: add 0.1*randome gaussian noise to the target position. 0.1 is determined empirically
-        noised_target = target + torch.randn(2) * 0.1
-        obs[-2:] = noised_target
-        return obs, act
+        obs = self.observations[idx]
+        act = self.actions[idx]
+        
+        # add 0.1*randome gaussian noise to the observation. 0.1 is determined empirically
+        obs += torch.randn_like(obs) * 0.05 * self.std
+        return (obs, act)
 
 def save_dataset(dataset, env_name):
     print(dataset['observations'].shape, dataset['actions'].shape) # An N x dim_observation Numpy array of observations
